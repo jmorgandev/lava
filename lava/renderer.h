@@ -1,7 +1,7 @@
 #ifndef LAVA_RENDERER_H
 #define LAVA_RENDERER_H
 
-#include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan.h>
 
 class lava_app;
 
@@ -11,9 +11,11 @@ public:
     lava_renderer(lava_app * app);
     ~lava_renderer();
 
-    void setup_validation_layers(vk::InstanceCreateInfo * create_info);
+    void setup_validation_layers(VkInstanceCreateInfo * create_info);
+    void setup_debug_messenger();
 
-    vk::Instance vk_instance;
+    VkInstance vk_instance;
+    VkDebugUtilsMessengerEXT debug_messenger;
 };
 
 #endif

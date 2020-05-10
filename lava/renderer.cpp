@@ -3,10 +3,38 @@
 #include "app.h"
 #include "lvk.h"
 
-#ifdef _DEBUG
+#if USE_VALIDATION
 static const std::vector<const char *> validation_layers = {
     "VK_LAYER_KHRONOS_validation"
 };
+
+static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
+                                                     VkDebugUtilsMessageTypeFlagsEXT type,
+                                                     const VkDebugUtilsMessengerCallbackDataEXT * callback_data,
+                                                     void * user_data)
+{
+    printf("%s\n", callback_data->pMessage);
+    return VK_FALSE;
+}
+
+VkResult create_debug_utils_messenger_ext(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT * create_info,
+                                          const VkAllocationCallbacks * allocator, VkDebugUtilsMessengerEXT * debug_messenger)
+{
+    auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+    if (func != nullptr)
+    {
+        return func(instance, create_info, allocator, debug_messenger);
+    }
+    else return VK_ERROR_EXTENSION_NOT_PRESENT;
+}
+VkResult destroy_debug_utils_messenger_ext(VkInstance instance, VkDebugUtilsMessengerEXT debug_messenger, const VkAllocationCallbacks * allocator)
+{
+    auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+    if (func != nullptr)
+    {
+        func(instance, debug_messenger, allocator);
+    }
+}
 #endif
 
 lava_renderer::lava_renderer(lava_app * app)
@@ -19,58 +47,42 @@ lava_renderer::lava_renderer(lava_app * app)
     std::vector<const char *> requested_extensions(sdl_required_extension_count);
     SDL_Vulkan_GetInstanceExtensions(app->sdl_window, &sdl_required_extension_count, requested_extensions.data());
 
-    // Filter available extensions with the ones we requested
-    auto available_extensions = vk::enumerateInstanceExtensionProperties();
-    std::vector<const char *> supported_extension_names;
-    std::copy_if(requested_extensions.begin(), requested_extensions.end(), std::back_inserter(supported_extension_names), [&available_extensions](const char * name) 
-    {
-        for (const auto & ext : available_extensions)
-            if (strcmp(ext.extensionName, name) == 0) return true;
-        return false;
-    });
+#if USE_VALIDATION
+    requested_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+#endif
 
-    auto instance_create_info = lvk::make_instance_create_info(&app_info, requested_extensions, {});
-    setup_validation_layers(&instance_create_info);
+    std::vector<const char *> requested_validation_layers = { "VK_LAYER_KHRONOS_validation" };
 
-    try
+    auto instance_create_info = lvk::make_instance_create_info(&app_info, requested_extensions, requested_validation_layers);
+
+    if (vkCreateInstance(&instance_create_info, nullptr, &vk_instance) != VK_SUCCESS)
     {
-        vk_instance = vk::createInstance(instance_create_info);
+        throw std::runtime_error("Failed to create instance!");
     }
-    catch (std::exception e)
-    {
-        printf("Couldn't create vulkan instance: %s", e.what());
-    }
+
+    setup_debug_messenger();
 }
 
 lava_renderer::~lava_renderer()
 {
-
+#if _DEBUG
+    destroy_debug_utils_messenger_ext(vk_instance, debug_messenger, nullptr);
+#endif
+    vkDestroyInstance(vk_instance, nullptr);
 }
 
-void lava_renderer::setup_validation_layers(vk::InstanceCreateInfo * create_info)
+void lava_renderer::setup_debug_messenger()
 {
-#ifdef _DEBUG
-    auto available_layers = vk::enumerateInstanceLayerProperties();
+#if _DEBUG
+    VkDebugUtilsMessengerCreateInfoEXT create_info = {};
+    create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+    create_info.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+                                  VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+    create_info.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                              VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+    create_info.pfnUserCallback = debug_callback;
+    create_info.pUserData = nullptr;
 
-    for (const auto & requested_layer_name : validation_layers)
-    {
-        bool layer_found = false;
-        for (const auto & layer_property : available_layers)
-        {
-            if (strcmp(requested_layer_name, layer_property.layerName) == 0)
-            {
-                layer_found = true;
-                break;
-            }
-        }
-
-        if (!layer_found)
-            throw "Some requested validation layers are not available!";
-    }
-
-    create_info->enabledLayerCount = (uint32_t)validation_layers.size();
-    create_info->ppEnabledLayerNames = validation_layers.data();
-#else
-    create_info->enabledLayerCount = 0;
+    create_debug_utils_messenger_ext(vk_instance, &create_info, nullptr, &debug_messenger);
 #endif
 }
