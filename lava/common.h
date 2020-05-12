@@ -3,4 +3,6 @@
 
 #include <stdio.h>
 
+#define USE_VALIDATION _DEBUG || true
+
 #endif
