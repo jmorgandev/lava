@@ -7,6 +7,6 @@ int main(int argc, char** argv)
     while (app->running)
         app->poll_events();
 
-    app.release();
+    app.reset();
     return 0;
 }

@@ -29,7 +29,7 @@ void lava_app::poll_events()
 
 lava_app::~lava_app()
 {
-    renderer.release();
+    renderer.reset();
     SDL_DestroyWindow(sdl_window);
     SDL_Quit();
 }
