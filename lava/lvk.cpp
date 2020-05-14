@@ -87,4 +87,22 @@ namespace lvk
             func(instance, debug_messenger, allocator);
         }
     }
+
+    QueueFamilyInfo get_queue_family_info(VkPhysicalDevice device)
+    {
+        QueueFamilyInfo info;
+        uint32_t count;
+        vkGetPhysicalDeviceQueueFamilyProperties(device, &count, nullptr);
+        std::vector<VkQueueFamilyProperties> properties(count);
+        vkGetPhysicalDeviceQueueFamilyProperties(device, &count, properties.data());
+        int current_index = 0;
+        for (const auto & family : properties)
+        {
+            if (family.queueFlags & VK_QUEUE_GRAPHICS_BIT && info.graphics_queue == LVK_NULL_QUEUE_FAMILY)
+                info.graphics_queue = current_index;
+
+            current_index++;
+        }
+        return info;
+    }
 }

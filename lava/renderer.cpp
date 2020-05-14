@@ -80,7 +80,8 @@ lava_renderer::lava_renderer(lava_app * app)
         vkGetPhysicalDeviceProperties(device, &properties);
         vkGetPhysicalDeviceFeatures(device, &features);
 
-        if (properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU && features.geometryShader)
+        auto queue_info = lvk::get_queue_family_info(device);
+        if (queue_info.graphics_queue != LVK_NULL_QUEUE_FAMILY)
         {
             physical_device = device;
             break;
