@@ -1,5 +1,7 @@
 #include "renderer.h"
-#include "common.h"
+
+#include <set>
+
 #include "app.h"
 #include "lvk.h"
 
@@ -95,18 +97,26 @@ lava_renderer::lava_renderer(lava_app * app)
     if (physical_device == VK_NULL_HANDLE)
         throw std::runtime_error("Couldn't find a GPU with appropriate features!");
 
-    VkDeviceQueueCreateInfo queue_create_info = {};
-    queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queue_create_info.queueFamilyIndex = queue_family_info.graphics_family;
+    std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
+    std::set<int> unique_families = { queue_family_info.graphics_family, queue_family_info.present_family };
     float priority = 1.0f;
-    queue_create_info.pQueuePriorities = &priority;
+
+    for (int family : unique_families)
+    {
+        VkDeviceQueueCreateInfo create_info = {};
+        create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        create_info.queueFamilyIndex = family;
+        create_info.queueCount = 1;
+        create_info.pQueuePriorities = &priority;
+        queue_create_infos.push_back(create_info);
+    }
 
     VkPhysicalDeviceFeatures device_features;
 
     VkDeviceCreateInfo device_create_info = {};
     device_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    device_create_info.pQueueCreateInfos = &queue_create_info;
-    device_create_info.queueCreateInfoCount = 1;
+    device_create_info.queueCreateInfoCount = (uint32_t)queue_create_infos.size();
+    device_create_info.pQueueCreateInfos = queue_create_infos.data();
     device_create_info.pEnabledFeatures = &device_features;
 
 #if DEVICE_VALIDATION_LAYER_COMPATIBILITY
@@ -121,6 +131,7 @@ lava_renderer::lava_renderer(lava_app * app)
         throw std::runtime_error("Failed to create logical device!");
 
     vkGetDeviceQueue(device, queue_family_info.graphics_family, 0, &graphics_queue);
+    vkGetDeviceQueue(device, queue_family_info.present_family, 0, &present_queue);
 }
 
 lava_renderer::~lava_renderer()
