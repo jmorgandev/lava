@@ -62,6 +62,9 @@ lava_renderer::lava_renderer(lava_app * app)
     debug_messenger = lvk::make_debug_messenger(vulkan_instance, &debug_create_info);
 #endif
 
+    if (!SDL_Vulkan_CreateSurface(app->sdl_window, vulkan_instance, &window_surface))
+        throw std::runtime_error("Failed to create window surface from SDL!");
+
     // Find and select vulkan compatible device for use
     uint32_t device_count;
     vkEnumeratePhysicalDevices(vulkan_instance, &device_count, nullptr);
@@ -72,6 +75,7 @@ lava_renderer::lava_renderer(lava_app * app)
     vkEnumeratePhysicalDevices(vulkan_instance, &device_count, physical_devices.data());
 
     physical_device = VK_NULL_HANDLE;
+    lvk::QueueFamilyInfo queue_family_info = {};
     // Select a GPU which has the following properties and features...
     for (const auto & device : physical_devices)
     {
@@ -80,8 +84,8 @@ lava_renderer::lava_renderer(lava_app * app)
         vkGetPhysicalDeviceProperties(device, &properties);
         vkGetPhysicalDeviceFeatures(device, &features);
 
-        auto queue_family_info = lvk::get_queue_family_info(device);
-        if (queue_family_info.graphics_queue_family != LVK_NULL_QUEUE_FAMILY)
+        queue_family_info = lvk::get_queue_family_info(device, window_surface);
+        if (queue_family_info.graphics_family != LVK_NULL_QUEUE_FAMILY)
         {
             physical_device = device;
             break;
@@ -91,11 +95,9 @@ lava_renderer::lava_renderer(lava_app * app)
     if (physical_device == VK_NULL_HANDLE)
         throw std::runtime_error("Couldn't find a GPU with appropriate features!");
 
-    lvk::QueueFamilyInfo queue_family_info = lvk::get_queue_family_info(physical_device);
-
     VkDeviceQueueCreateInfo queue_create_info = {};
     queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queue_create_info.queueFamilyIndex = queue_family_info.graphics_queue_family;
+    queue_create_info.queueFamilyIndex = queue_family_info.graphics_family;
     float priority = 1.0f;
     queue_create_info.pQueuePriorities = &priority;
 
@@ -118,10 +120,7 @@ lava_renderer::lava_renderer(lava_app * app)
     if (vkCreateDevice(physical_device, &device_create_info, nullptr, &device) != VK_SUCCESS)
         throw std::runtime_error("Failed to create logical device!");
 
-    vkGetDeviceQueue(device, queue_family_info.graphics_queue_family, 0, &graphics_queue);
-
-    if (!SDL_Vulkan_CreateSurface(app->sdl_window, vulkan_instance, &window_surface))
-        throw std::runtime_error("Failed to create window surface from SDL!");
+    vkGetDeviceQueue(device, queue_family_info.graphics_family, 0, &graphics_queue);
 }
 
 lava_renderer::~lava_renderer()

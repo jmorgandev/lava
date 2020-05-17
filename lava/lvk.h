@@ -19,9 +19,10 @@ namespace lvk
 
     struct QueueFamilyInfo
     {
-        int graphics_queue_family = LVK_NULL_QUEUE_FAMILY;
+        int graphics_family = LVK_NULL_QUEUE_FAMILY;
+        int present_family = LVK_NULL_QUEUE_FAMILY;
     };
-    QueueFamilyInfo get_queue_family_info(VkPhysicalDevice device);
+    QueueFamilyInfo get_queue_family_info(VkPhysicalDevice device, VkSurfaceKHR surface);
 }
 
 #endif

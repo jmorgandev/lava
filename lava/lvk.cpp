@@ -88,7 +88,7 @@ namespace lvk
         }
     }
 
-    QueueFamilyInfo get_queue_family_info(VkPhysicalDevice device)
+    QueueFamilyInfo get_queue_family_info(VkPhysicalDevice device, VkSurfaceKHR surface)
     {
         QueueFamilyInfo info;
         uint32_t count;
@@ -98,8 +98,13 @@ namespace lvk
         int current_index = 0;
         for (const auto & family : properties)
         {
-            if (family.queueFlags & VK_QUEUE_GRAPHICS_BIT && info.graphics_queue_family == LVK_NULL_QUEUE_FAMILY)
-                info.graphics_queue_family = current_index;
+            if (family.queueFlags & VK_QUEUE_GRAPHICS_BIT)
+                info.graphics_family = current_index;
+
+            VkBool32 present_support = false;
+            vkGetPhysicalDeviceSurfaceSupportKHR(device, current_index, surface, &present_support);
+            if (present_support);
+                info.present_family = current_index;
 
             current_index++;
         }
