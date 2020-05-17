@@ -117,6 +117,8 @@ lava_renderer::lava_renderer(lava_app * app)
 
     if (vkCreateDevice(physical_device, &device_create_info, nullptr, &device) != VK_SUCCESS)
         throw std::runtime_error("Failed to create logical device!");
+
+    vkGetDeviceQueue(&device, queue_family_info.graphics_queue_family, 0, &graphics_queue);
 }
 
 lava_renderer::~lava_renderer()

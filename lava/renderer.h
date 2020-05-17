@@ -15,6 +15,7 @@ public:
     VkDebugUtilsMessengerEXT debug_messenger;
     VkPhysicalDevice physical_device;
     VkDevice device;
+    VkQueue graphics_queue;
 };
 
 #endif
