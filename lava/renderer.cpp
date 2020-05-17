@@ -118,11 +118,15 @@ lava_renderer::lava_renderer(lava_app * app)
     if (vkCreateDevice(physical_device, &device_create_info, nullptr, &device) != VK_SUCCESS)
         throw std::runtime_error("Failed to create logical device!");
 
-    vkGetDeviceQueue(&device, queue_family_info.graphics_queue_family, 0, &graphics_queue);
+    vkGetDeviceQueue(device, queue_family_info.graphics_queue_family, 0, &graphics_queue);
+
+    if (!SDL_Vulkan_CreateSurface(app->sdl_window, vulkan_instance, &window_surface))
+        throw std::runtime_error("Failed to create window surface from SDL!");
 }
 
 lava_renderer::~lava_renderer()
 {
+    vkDestroySurfaceKHR(vulkan_instance, window_surface, nullptr);
     vkDestroyDevice(device, nullptr);
 #if USE_VALIDATION
     lvk::destroy_debug_messenger(vulkan_instance, debug_messenger);
