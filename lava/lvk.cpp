@@ -98,8 +98,8 @@ namespace lvk
         int current_index = 0;
         for (const auto & family : properties)
         {
-            if (family.queueFlags & VK_QUEUE_GRAPHICS_BIT && info.graphics_queue == LVK_NULL_QUEUE_FAMILY)
-                info.graphics_queue = current_index;
+            if (family.queueFlags & VK_QUEUE_GRAPHICS_BIT && info.graphics_queue_family == LVK_NULL_QUEUE_FAMILY)
+                info.graphics_queue_family = current_index;
 
             current_index++;
         }

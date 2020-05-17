@@ -80,8 +80,8 @@ lava_renderer::lava_renderer(lava_app * app)
         vkGetPhysicalDeviceProperties(device, &properties);
         vkGetPhysicalDeviceFeatures(device, &features);
 
-        auto queue_info = lvk::get_queue_family_info(device);
-        if (queue_info.graphics_queue != LVK_NULL_QUEUE_FAMILY)
+        auto queue_family_info = lvk::get_queue_family_info(device);
+        if (queue_family_info.graphics_queue_family != LVK_NULL_QUEUE_FAMILY)
         {
             physical_device = device;
             break;
@@ -90,10 +90,38 @@ lava_renderer::lava_renderer(lava_app * app)
 
     if (physical_device == VK_NULL_HANDLE)
         throw std::runtime_error("Couldn't find a GPU with appropriate features!");
+
+    lvk::QueueFamilyInfo queue_family_info = lvk::get_queue_family_info(physical_device);
+
+    VkDeviceQueueCreateInfo queue_create_info = {};
+    queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    queue_create_info.queueFamilyIndex = queue_family_info.graphics_queue_family;
+    float priority = 1.0f;
+    queue_create_info.pQueuePriorities = &priority;
+
+    VkPhysicalDeviceFeatures device_features;
+
+    VkDeviceCreateInfo device_create_info = {};
+    device_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    device_create_info.pQueueCreateInfos = &queue_create_info;
+    device_create_info.queueCreateInfoCount = 1;
+    device_create_info.pEnabledFeatures = &device_features;
+
+#if DEVICE_VALIDATION_LAYER_COMPATIBILITY
+    device_create_info.enabledLayerCount = (uint32_t)layers.size();
+    device_create_info.ppEnabledLayerNames = layers.data();
+#else
+    // Device specific validation layers are deprecated as of Vulkan 1.2
+    device_create_info.enabledLayerCount = 0; 
+#endif
+
+    if (vkCreateDevice(physical_device, &device_create_info, nullptr, &device) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create logical device!");
 }
 
 lava_renderer::~lava_renderer()
 {
+    vkDestroyDevice(device, nullptr);
 #if USE_VALIDATION
     lvk::destroy_debug_messenger(vulkan_instance, debug_messenger);
 #endif

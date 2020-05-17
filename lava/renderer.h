@@ -14,6 +14,7 @@ public:
     VkInstance vulkan_instance;
     VkDebugUtilsMessengerEXT debug_messenger;
     VkPhysicalDevice physical_device;
+    VkDevice device;
 };
 
 #endif

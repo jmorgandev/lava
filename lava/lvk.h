@@ -6,6 +6,8 @@
 #include <vector>
 
 #define LVK_NULL_QUEUE_FAMILY -1
+#define USE_VALIDATION _DEBUG || true
+#define DEVICE_VALIDATION_LAYER_COMPATIBILITY false
 
 namespace lvk
 {
@@ -17,7 +19,7 @@ namespace lvk
 
     struct QueueFamilyInfo
     {
-        int graphics_queue = LVK_NULL_QUEUE_FAMILY;
+        int graphics_queue_family = LVK_NULL_QUEUE_FAMILY;
     };
     QueueFamilyInfo get_queue_family_info(VkPhysicalDevice device);
 }
