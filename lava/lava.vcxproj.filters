@@ -34,8 +34,5 @@
     <ClInclude Include="renderer.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="common.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
   </ItemGroup>
 </Project>

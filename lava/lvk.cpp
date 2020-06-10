@@ -51,6 +51,23 @@ namespace lvk
         return filtered_layers;
     }
 
+    std::vector<const char *> filter_supported_device_extensions(VkPhysicalDevice device, std::vector<const char *> requested_extensions)
+    {
+        uint32_t supported_extension_count = 0;
+        vkEnumerateDeviceExtensionProperties(device, nullptr, &supported_extension_count, nullptr);
+        std::vector<VkExtensionProperties> supported_extensions(supported_extension_count);
+        vkEnumerateDeviceExtensionProperties(device, nullptr, &supported_extension_count, supported_extensions.data());
+        std::vector<const char *> filtered_extensions;
+        std::copy_if(requested_extensions.begin(), requested_extensions.end(), std::back_inserter(filtered_extensions),
+                     [&supported_extensions](const char * name) -> bool
+        {
+            for (const auto & ext : supported_extensions)
+                if (strcmp(ext.extensionName, name) == 0) return true;
+            return false;
+        });
+        return filtered_extensions;
+    }
+
     VkDebugUtilsMessengerEXT make_debug_messenger(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT * create_info, const VkAllocationCallbacks * allocator)
     {
         VkDebugUtilsMessengerEXT debug_messenger;

@@ -16,6 +16,7 @@ namespace lvk
     void destroy_debug_messenger(VkInstance instance, VkDebugUtilsMessengerEXT debug_messenger, const VkAllocationCallbacks * allocator = nullptr);
     std::vector<const char *> filter_supported_extensions(std::vector<const char *> requested_extensions);
     std::vector<const char *> filter_supported_layers(std::vector<const char *> requested_layers);
+    std::vector<const char *> filter_supported_device_extensions(VkPhysicalDevice device, std::vector<const char *> requested_extensions);
 
     struct QueueFamilyInfo
     {
