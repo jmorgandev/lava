@@ -78,6 +78,7 @@ lava_renderer::lava_renderer(lava_app * app)
 
     physical_device = VK_NULL_HANDLE;
     lvk::QueueFamilyInfo queue_family_info = {};
+    std::vector<const char *> supported_device_extensions = {};
     // Select a GPU which has the following properties and features...
     for (const auto & device : physical_devices)
     {
@@ -86,10 +87,10 @@ lava_renderer::lava_renderer(lava_app * app)
         vkGetPhysicalDeviceProperties(device, &properties);
         vkGetPhysicalDeviceFeatures(device, &features);
 
-        auto supported_extensions = lvk::filter_supported_device_extensions(device, { VK_KHR_SWAPCHAIN_EXTENSION_NAME });
+        supported_device_extensions = lvk::filter_supported_device_extensions(device, { VK_KHR_SWAPCHAIN_EXTENSION_NAME });
         queue_family_info = lvk::get_queue_family_info(device, window_surface);
 
-        if (queue_family_info.graphics_family != LVK_NULL_QUEUE_FAMILY && !supported_extensions.empty())
+        if (queue_family_info.graphics_family != LVK_NULL_QUEUE_FAMILY && !supported_device_extensions.empty())
         {
             physical_device = device;
             break;
@@ -120,6 +121,8 @@ lava_renderer::lava_renderer(lava_app * app)
     device_create_info.queueCreateInfoCount = (uint32_t)queue_create_infos.size();
     device_create_info.pQueueCreateInfos = queue_create_infos.data();
     device_create_info.pEnabledFeatures = &device_features;
+    device_create_info.enabledExtensionCount = (uint32_t)supported_device_extensions.size();
+    device_create_info.ppEnabledExtensionNames = supported_device_extensions.data();
 
 #if DEVICE_VALIDATION_LAYER_COMPATIBILITY
     device_create_info.enabledLayerCount = (uint32_t)layers.size();
