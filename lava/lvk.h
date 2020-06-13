@@ -32,6 +32,10 @@ namespace lvk
         std::vector<VkPresentModeKHR> present_modes;
     };
     DeviceSurfaceDetails query_surface_details(VkPhysicalDevice device, VkSurfaceKHR surface);
+
+    VkSurfaceFormatKHR choose_swapchain_surface_format(const std::vector<VkSurfaceFormatKHR> & available_formats);
+    VkPresentModeKHR choose_swapchain_present_mode(const std::vector<VkPresentModeKHR> & available_modes);
+    VkExtent2D choose_swapchain_extent(const VkSurfaceCapabilitiesKHR & capabilities, uint32_t window_width, uint32_t window_height);
 }
 
 #endif

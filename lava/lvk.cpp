@@ -1,7 +1,7 @@
 #include "lvk.h"
 #include <algorithm>
 #include <iterator>
-#include "common.h"
+#include <cstdint>
 
 namespace lvk
 {
@@ -145,5 +145,45 @@ namespace lvk
         vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &present_mode_count, details.present_modes.data());
 
         return details;
+    }
+
+    VkSurfaceFormatKHR choose_swapchain_surface_format(const std::vector<VkSurfaceFormatKHR> & available_formats)
+    {
+        for (const auto & surface_format : available_formats)
+        {
+            if (surface_format.format == VK_FORMAT_B8G8R8A8_SRGB &&
+                surface_format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+            {
+                return surface_format;
+            }
+        }
+        return available_formats[0];
+    }
+
+    VkPresentModeKHR choose_swapchain_present_mode(const std::vector<VkPresentModeKHR> & available_modes)
+    {
+        for (const auto & mode : available_modes)
+        {
+            if (mode == VK_PRESENT_MODE_MAILBOX_KHR)
+            {
+                return mode;
+            }
+        }
+        return VK_PRESENT_MODE_FIFO_KHR;
+    }
+
+    VkExtent2D choose_swapchain_extent(const VkSurfaceCapabilitiesKHR & capabilities, uint32_t window_width, uint32_t window_height)
+    {
+        if (capabilities.currentExtent.width != UINT32_MAX)
+        {
+            return capabilities.currentExtent;
+        }
+        else
+        {
+            VkExtent2D extent = { window_width, window_height };
+            extent.width = std::max(capabilities.minImageExtent.width, std::min(capabilities.maxImageExtent.width, extent.width));
+            extent.height = std::max(capabilities.minImageExtent.height, std::min(capabilities.maxImageExtent.height, extent.height));
+            return extent;
+        }
     }
 }
