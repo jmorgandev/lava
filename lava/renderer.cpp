@@ -87,13 +87,19 @@ lava_renderer::lava_renderer(lava_app * app)
         vkGetPhysicalDeviceProperties(device, &properties);
         vkGetPhysicalDeviceFeatures(device, &features);
 
-        supported_device_extensions = lvk::filter_supported_device_extensions(device, { VK_KHR_SWAPCHAIN_EXTENSION_NAME });
         queue_family_info = lvk::get_queue_family_info(device, window_surface);
-
-        if (queue_family_info.graphics_family != LVK_NULL_QUEUE_FAMILY && !supported_device_extensions.empty())
+        if (queue_family_info.graphics_family != LVK_NULL_QUEUE_FAMILY)
         {
-            physical_device = device;
-            break;
+            supported_device_extensions = lvk::filter_supported_device_extensions(device, { VK_KHR_SWAPCHAIN_EXTENSION_NAME });
+            if (!supported_device_extensions.empty())
+            {
+                lvk::DeviceSurfaceDetails surface_details = lvk::query_surface_details(device, window_surface);
+                if (!surface_details.formats.empty() && !surface_details.present_modes.empty())
+                {
+                    physical_device = device;
+                    break;
+                }
+            }
         }
     }
 

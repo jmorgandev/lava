@@ -24,6 +24,14 @@ namespace lvk
         int present_family = LVK_NULL_QUEUE_FAMILY;
     };
     QueueFamilyInfo get_queue_family_info(VkPhysicalDevice device, VkSurfaceKHR surface);
+
+    struct DeviceSurfaceDetails
+    {
+        VkSurfaceCapabilitiesKHR capabilities;
+        std::vector<VkSurfaceFormatKHR> formats;
+        std::vector<VkPresentModeKHR> present_modes;
+    };
+    DeviceSurfaceDetails query_surface_details(VkPhysicalDevice device, VkSurfaceKHR surface);
 }
 
 #endif

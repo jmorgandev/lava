@@ -127,4 +127,23 @@ namespace lvk
         }
         return info;
     }
+
+    DeviceSurfaceDetails query_surface_details(VkPhysicalDevice device, VkSurfaceKHR surface)
+    {
+        DeviceSurfaceDetails details;
+
+        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
+
+        uint32_t format_count;
+        vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &format_count, nullptr);
+        details.formats.resize(format_count);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &format_count, details.formats.data());
+
+        uint32_t present_mode_count;
+        vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &present_mode_count, nullptr);
+        details.present_modes.resize(present_mode_count);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &present_mode_count, details.present_modes.data());
+
+        return details;
+    }
 }
