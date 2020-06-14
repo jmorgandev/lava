@@ -2,6 +2,7 @@
 #define LAVA_RENDERER_H
 
 #include <vulkan/vulkan.h>
+#include <vector>
 
 class lava_app;
 
@@ -19,6 +20,9 @@ public:
     VkQueue present_queue;
     VkSurfaceKHR window_surface;
     VkSwapchainKHR swapchain;
+    VkFormat swapchain_image_format;
+    VkExtent2D swapchain_extent;
+    std::vector<VkImage> swapchain_images;
 };
 
 #endif

@@ -148,7 +148,7 @@ lava_renderer::lava_renderer(lava_app * app)
     lvk::DeviceSurfaceDetails swapchain_support = lvk::query_surface_details(physical_device, window_surface);
     VkSurfaceFormatKHR swapchain_format = lvk::choose_swapchain_surface_format(swapchain_support.formats);
     VkPresentModeKHR swapchain_present_mode = lvk::choose_swapchain_present_mode(swapchain_support.present_modes);
-    VkExtent2D swapchain_extent = lvk::choose_swapchain_extent(swapchain_support.capabilities, app->window_width, app->window_height);
+    VkExtent2D extent = lvk::choose_swapchain_extent(swapchain_support.capabilities, app->window_width, app->window_height);
 
     uint32_t swapchain_length = swapchain_support.capabilities.minImageCount + 1;
     if (swapchain_support.capabilities.maxImageCount > 0 &&
@@ -163,7 +163,7 @@ lava_renderer::lava_renderer(lava_app * app)
     swapchain_create_info.minImageCount = swapchain_length;
     swapchain_create_info.imageFormat = swapchain_format.format;
     swapchain_create_info.imageColorSpace = swapchain_format.colorSpace;
-    swapchain_create_info.imageExtent = swapchain_extent;
+    swapchain_create_info.imageExtent = extent;
     swapchain_create_info.imageArrayLayers = 1;
     swapchain_create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
@@ -192,6 +192,13 @@ lava_renderer::lava_renderer(lava_app * app)
     {
         throw std::runtime_error("Failed to create swap chain!");
     }
+
+    vkGetSwapchainImagesKHR(device, swapchain, &swapchain_length, nullptr);
+    swapchain_images.resize(swapchain_length);
+    vkGetSwapchainImagesKHR(device, swapchain, &swapchain_length, swapchain_images.data());
+
+    swapchain_image_format = swapchain_format.format;
+    swapchain_extent = extent;
 }
 
 lava_renderer::~lava_renderer()
