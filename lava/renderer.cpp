@@ -199,10 +199,35 @@ lava_renderer::lava_renderer(lava_app * app)
 
     swapchain_image_format = swapchain_format.format;
     swapchain_extent = extent;
+
+    swapchain_image_views.resize(swapchain_images.size());
+    for (int i = 0; i < swapchain_images.size(); i++)
+    {
+        VkImageViewCreateInfo create_info = {};
+        create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        create_info.image = swapchain_images[i];
+        create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        create_info.format = swapchain_image_format;
+        create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+        create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+        create_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+        create_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+
+        create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        create_info.subresourceRange.baseMipLevel = 0;
+        create_info.subresourceRange.levelCount = 1;
+        create_info.subresourceRange.baseArrayLayer = 0;
+        create_info.subresourceRange.layerCount = 1;
+
+        if (vkCreateImageView(device, &create_info, nullptr, &swapchain_image_views[i]) != VK_SUCCESS)
+            throw std::runtime_error("Failed to create image view!");
+    }
 }
 
 lava_renderer::~lava_renderer()
 {
+    for (const auto image_view : swapchain_image_views)
+        vkDestroyImageView(device, image_view, nullptr);
     vkDestroySwapchainKHR(device, swapchain, nullptr);
     vkDestroySurfaceKHR(vulkan_instance, window_surface, nullptr);
     vkDestroyDevice(device, nullptr);
