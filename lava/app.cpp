@@ -4,6 +4,7 @@
 
 
 lava_app::lava_app(const char * window_title, int width, int height)
+    : window_width(width), window_height(height)
 {
     SDL_Init(SDL_INIT_VIDEO);
 

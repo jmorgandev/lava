@@ -18,6 +18,7 @@ public:
     VkQueue graphics_queue;
     VkQueue present_queue;
     VkSurfaceKHR window_surface;
+    VkSwapchainKHR swapchain;
 };
 
 #endif

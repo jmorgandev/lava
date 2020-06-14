@@ -16,6 +16,7 @@ public:
     SDL_Window * sdl_window;
     std::unique_ptr<lava_renderer> renderer;
     bool running;
+    int window_width, window_height;
 
     void poll_events();
 };

@@ -1,6 +1,7 @@
 #include "renderer.h"
 
 #include <set>
+#include <SDL/SDL_video.h>
 
 #include "app.h"
 #include "lvk.h"
@@ -143,10 +144,59 @@ lava_renderer::lava_renderer(lava_app * app)
 
     vkGetDeviceQueue(device, queue_family_info.graphics_family, 0, &graphics_queue);
     vkGetDeviceQueue(device, queue_family_info.present_family, 0, &present_queue);
+
+    lvk::DeviceSurfaceDetails swapchain_support = lvk::query_surface_details(physical_device, window_surface);
+    VkSurfaceFormatKHR swapchain_format = lvk::choose_swapchain_surface_format(swapchain_support.formats);
+    VkPresentModeKHR swapchain_present_mode = lvk::choose_swapchain_present_mode(swapchain_support.present_modes);
+    VkExtent2D swapchain_extent = lvk::choose_swapchain_extent(swapchain_support.capabilities, app->window_width, app->window_height);
+
+    uint32_t swapchain_length = swapchain_support.capabilities.minImageCount + 1;
+    if (swapchain_support.capabilities.maxImageCount > 0 &&
+        swapchain_length > swapchain_support.capabilities.maxImageCount)
+    {
+        swapchain_length = swapchain_support.capabilities.maxImageCount;
+    }
+
+    VkSwapchainCreateInfoKHR swapchain_create_info = {};
+    swapchain_create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+    swapchain_create_info.surface = window_surface;
+    swapchain_create_info.minImageCount = swapchain_length;
+    swapchain_create_info.imageFormat = swapchain_format.format;
+    swapchain_create_info.imageColorSpace = swapchain_format.colorSpace;
+    swapchain_create_info.imageExtent = swapchain_extent;
+    swapchain_create_info.imageArrayLayers = 1;
+    swapchain_create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+
+    if (queue_family_info.graphics_family != queue_family_info.present_family)
+    {
+        swapchain_create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+        swapchain_create_info.queueFamilyIndexCount = 2;
+        uint32_t indices[] = { queue_family_info.graphics_family, queue_family_info.present_family };
+        swapchain_create_info.pQueueFamilyIndices = indices;
+    }
+    else
+    {
+        swapchain_create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        swapchain_create_info.queueFamilyIndexCount = 0;
+        swapchain_create_info.pQueueFamilyIndices = nullptr;
+    }
+
+    swapchain_create_info.preTransform = swapchain_support.capabilities.currentTransform;
+    swapchain_create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    swapchain_create_info.presentMode = swapchain_present_mode;
+    swapchain_create_info.clipped = VK_TRUE;
+    swapchain_create_info.oldSwapchain = VK_NULL_HANDLE;
+
+    if (vkCreateSwapchainKHR(device, &swapchain_create_info, nullptr, &swapchain) != VK_SUCCESS)
+    {
+        throw std::runtime_error("Failed to create swap chain!");
+    }
 }
 
 lava_renderer::~lava_renderer()
 {
+    vkDestroySwapchainKHR(device, swapchain, nullptr);
     vkDestroySurfaceKHR(vulkan_instance, window_surface, nullptr);
     vkDestroyDevice(device, nullptr);
 #if USE_VALIDATION
