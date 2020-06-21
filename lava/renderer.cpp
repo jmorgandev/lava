@@ -6,6 +6,23 @@
 #include "app.h"
 #include "lvk.h"
 
+#include <fstream>
+
+static std::vector<char> load_file(const std::string filename)
+{
+    std::ifstream file(filename, std::ios::ate | std::ios::binary);
+    if (!file.is_open())
+        throw std::runtime_error("failed to open " + filename);
+
+    size_t size = (size_t)file.tellg();
+    std::vector<char> buffer(size);
+
+    file.seekg(0);
+    file.read(buffer.data(), size);
+    file.close();
+    return buffer;
+}
+
 static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
                                                      VkDebugUtilsMessageTypeFlagsEXT type,
                                                      const VkDebugUtilsMessengerCallbackDataEXT * callback_data,
@@ -222,6 +239,36 @@ lava_renderer::lava_renderer(lava_app * app)
         if (vkCreateImageView(device, &create_info, nullptr, &swapchain_image_views[i]) != VK_SUCCESS)
             throw std::runtime_error("Failed to create image view!");
     }
+
+    auto vert_shader_source = load_file("shaders/vert.spv");
+    auto frag_shader_source = load_file("shaders/frag.spv");
+    
+    VkShaderModule vertex_shader = lvk::create_shader_module(device, vert_shader_source);
+    VkShaderModule fragment_shader = lvk::create_shader_module(device, frag_shader_source);
+
+    VkPipelineShaderStageCreateInfo vertex_stage_info = {};
+    vertex_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    vertex_stage_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    vertex_stage_info.module = vertex_shader;
+    vertex_stage_info.pName = "main";
+
+    VkPipelineShaderStageCreateInfo fragment_stage_info = {};
+    fragment_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    fragment_stage_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    fragment_stage_info.module = fragment_shader;
+    fragment_stage_info.pName = "main";
+
+    VkPipelineShaderStageCreateInfo shader_stages[] = { vertex_stage_info, fragment_stage_info };
+
+    VkPipelineVertexInputStateCreateInfo vertex_input_info = {};
+    vertex_input_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    vertex_input_info.vertexBindingDescriptionCount = 0;
+    vertex_input_info.pVertexBindingDescriptions = nullptr;
+    vertex_input_info.vertexAttributeDescriptionCount = 0;
+    vertex_input_info.pVertexAttributeDescriptions = nullptr;
+
+    vkDestroyShaderModule(device, vertex_shader, nullptr);
+    vkDestroyShaderModule(device, fragment_shader, nullptr);
 }
 
 lava_renderer::~lava_renderer()

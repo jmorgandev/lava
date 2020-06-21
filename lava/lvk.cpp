@@ -186,4 +186,18 @@ namespace lvk
             return extent;
         }
     }
+
+    VkShaderModule create_shader_module(VkDevice device, const std::vector<char> & source)
+    {
+        VkShaderModuleCreateInfo create_info = {};
+        create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+        create_info.codeSize = source.size();
+        create_info.pCode = (const uint32_t *)(source.data());
+
+        VkShaderModule module;
+        if (vkCreateShaderModule(device, &create_info, nullptr, &module) != VK_SUCCESS)
+            throw std::runtime_error("Error creating shader module");
+
+        return module;
+    }
 }
