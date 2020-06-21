@@ -348,12 +348,23 @@ lava_renderer::lava_renderer(lava_app * app)
     dynamic_state.dynamicStateCount = 2;
     dynamic_state.pDynamicStates = dynamic_states;
 
+    VkPipelineLayoutCreateInfo pipeline_layout_info = {};
+    pipeline_layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipeline_layout_info.setLayoutCount = 0;
+    pipeline_layout_info.pSetLayouts = nullptr;
+    pipeline_layout_info.pushConstantRangeCount = 0;
+    pipeline_layout_info.pPushConstantRanges = nullptr;
+
+    if (vkCreatePipelineLayout(device, &pipeline_layout_info, nullptr, &pipeline_layout) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create pipeline layout");
+
     vkDestroyShaderModule(device, vertex_shader, nullptr);
     vkDestroyShaderModule(device, fragment_shader, nullptr);
 }
 
 lava_renderer::~lava_renderer()
 {
+    vkDestroyPipelineLayout(device, pipeline_layout, nullptr);
     for (const auto image_view : swapchain_image_views)
         vkDestroyImageView(device, image_view, nullptr);
     vkDestroySwapchainKHR(device, swapchain, nullptr);
