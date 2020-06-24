@@ -26,6 +26,7 @@ public:
     std::vector<VkImageView> swapchain_image_views;
     VkRenderPass render_pass;
     VkPipelineLayout pipeline_layout;
+    VkPipeline graphics_pipeline;
 };
 
 #endif
