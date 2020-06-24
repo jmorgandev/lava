@@ -24,6 +24,7 @@ public:
     VkExtent2D swapchain_extent;
     std::vector<VkImage> swapchain_images;
     std::vector<VkImageView> swapchain_image_views;
+    VkRenderPass render_pass;
     VkPipelineLayout pipeline_layout;
 };
 
