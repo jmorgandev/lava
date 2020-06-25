@@ -120,8 +120,11 @@ namespace lvk
 
             VkBool32 present_support = false;
             vkGetPhysicalDeviceSurfaceSupportKHR(device, current_index, surface, &present_support);
-            if (present_support);
+            if (present_support)
                 info.present_family = current_index;
+
+            if (info.graphics_family != LVK_NULL_QUEUE_FAMILY && info.present_family != LVK_NULL_QUEUE_FAMILY)
+                break;
 
             current_index++;
         }
@@ -192,7 +195,7 @@ namespace lvk
         VkShaderModuleCreateInfo create_info = {};
         create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
         create_info.codeSize = source.size();
-        create_info.pCode = (const uint32_t *)(source.data());
+        create_info.pCode = (uint32_t *)(source.data());
 
         VkShaderModule module;
         if (vkCreateShaderModule(device, &create_info, nullptr, &module) != VK_SUCCESS)
