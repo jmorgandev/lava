@@ -407,10 +407,30 @@ lava_renderer::lava_renderer(lava_app * app)
         if (vkCreateFramebuffer(device, &framebuffer_info, nullptr, &swapchain_framebuffers[i]) != VK_SUCCESS)
             throw std::runtime_error("Failed to create framebuffer");
     }
+
+    VkCommandPoolCreateInfo pool_info = {};
+    pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    pool_info.queueFamilyIndex = queue_family_info.graphics_family;
+    pool_info.flags = 0;
+
+    if (vkCreateCommandPool(device, &pool_info, nullptr, &command_pool) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create command pool");
+
+    command_buffers.resize(swapchain_framebuffers.size());
+
+    VkCommandBufferAllocateInfo alloc_info = {};
+    alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    alloc_info.commandPool = command_pool;
+    alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    alloc_info.commandBufferCount = (uint32_t)command_buffers.size();
+
+    if (vkAllocateCommandBuffers(device, &alloc_info, command_buffers.data()) != VK_SUCCESS)
+        throw std::runtime_error("Failed to allocate command buffers");
 }
 
 lava_renderer::~lava_renderer()
 {
+    vkDestroyCommandPool(device, command_pool, nullptr);
     for (const auto framebuffer : swapchain_framebuffers)
         vkDestroyFramebuffer(device, framebuffer, nullptr);
     vkDestroyPipeline(device, graphics_pipeline, nullptr);

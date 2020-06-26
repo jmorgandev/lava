@@ -28,6 +28,8 @@ public:
     VkRenderPass render_pass;
     VkPipelineLayout pipeline_layout;
     VkPipeline graphics_pipeline;
+    VkCommandPool command_pool;
+    std::vector<VkCommandBuffer> command_buffers;
 };
 
 #endif
