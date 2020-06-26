@@ -426,6 +426,37 @@ lava_renderer::lava_renderer(lava_app * app)
 
     if (vkAllocateCommandBuffers(device, &alloc_info, command_buffers.data()) != VK_SUCCESS)
         throw std::runtime_error("Failed to allocate command buffers");
+
+    for (int i = 0; command_buffers.size(); i++)
+    {
+        VkCommandBufferBeginInfo begin_info = {};
+        begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        begin_info.flags = 0;
+        begin_info.pInheritanceInfo = nullptr;
+
+        if (vkBeginCommandBuffer(command_buffers[i], &begin_info) != VK_SUCCESS)
+            throw std::runtime_error("failed to begin recording command buffer");
+
+        VkRenderPassBeginInfo render_pass_info = {};
+        render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        render_pass_info.renderPass = render_pass;
+        render_pass_info.framebuffer = swapchain_framebuffers[i];
+        render_pass_info.renderArea.offset = { 0, 0 };
+        render_pass_info.renderArea.extent = swapchain_extent;
+
+        VkClearValue clear_color = { 0.0f, 0.0f, 0.0f, 1.0f };
+        render_pass_info.clearValueCount = 1;
+        render_pass_info.pClearValues = &clear_color;
+
+        vkCmdBeginRenderPass(command_buffers[i], &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+
+        vkCmdBindPipeline(command_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline);
+        vkCmdDraw(command_buffers[i], 3, 1, 0, 0);
+        vkCmdEndRenderPass(command_buffers[i]);
+
+        if (vkEndCommandBuffer(command_buffers[i]) != VK_SUCCESS)
+            throw std::runtime_error("Failed to record command buffer");
+    }
 }
 
 lava_renderer::~lava_renderer()
