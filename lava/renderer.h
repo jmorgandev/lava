@@ -10,6 +10,9 @@ class lava_renderer
 {
 public:
     lava_renderer(lava_app * app);
+
+    void draw_frame();
+
     ~lava_renderer();
 
     VkInstance vulkan_instance;
@@ -30,6 +33,13 @@ public:
     VkPipeline graphics_pipeline;
     VkCommandPool command_pool;
     std::vector<VkCommandBuffer> command_buffers;
+
+    std::vector<VkSemaphore> image_available_semaphores;
+    std::vector<VkSemaphore> render_finished_semaphores;
+    std::vector<VkFence> inflight_fences;
+    std::vector<VkFence> inflight_images;
+
+    int current_frame;
 };
 
 #endif

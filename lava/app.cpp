@@ -28,6 +28,11 @@ void lava_app::poll_events()
     }
 }
 
+void lava_app::draw_frame()
+{
+    renderer->draw_frame();
+}
+
 lava_app::~lava_app()
 {
     renderer.reset();

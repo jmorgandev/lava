@@ -8,6 +8,8 @@
 
 #include <fstream>
 
+static constexpr int LAVA_MAX_FRAMES_IN_FLIGHT = 2;
+
 static std::vector<char> load_file(const std::string filename)
 {
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
@@ -265,6 +267,17 @@ lava_renderer::lava_renderer(lava_app * app)
     render_pass_info.subpassCount = 1;
     render_pass_info.pSubpasses = &subpass;
 
+    VkSubpassDependency dependency = {};
+    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass = 0;
+    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.srcAccessMask = 0;
+    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+    render_pass_info.dependencyCount = 1;
+    render_pass_info.pDependencies = &dependency;
+
     if (vkCreateRenderPass(device, &render_pass_info, nullptr, &render_pass) != VK_SUCCESS)
         throw std::runtime_error("Failed to create render pass");
 
@@ -427,7 +440,7 @@ lava_renderer::lava_renderer(lava_app * app)
     if (vkAllocateCommandBuffers(device, &alloc_info, command_buffers.data()) != VK_SUCCESS)
         throw std::runtime_error("Failed to allocate command buffers");
 
-    for (int i = 0; command_buffers.size(); i++)
+    for (int i = 0; i < command_buffers.size(); i++)
     {
         VkCommandBufferBeginInfo begin_info = {};
         begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -457,10 +470,38 @@ lava_renderer::lava_renderer(lava_app * app)
         if (vkEndCommandBuffer(command_buffers[i]) != VK_SUCCESS)
             throw std::runtime_error("Failed to record command buffer");
     }
+
+    image_available_semaphores.resize(LAVA_MAX_FRAMES_IN_FLIGHT);
+    render_finished_semaphores.resize(LAVA_MAX_FRAMES_IN_FLIGHT);
+    inflight_fences.resize(LAVA_MAX_FRAMES_IN_FLIGHT);
+    inflight_images.resize(swapchain_images.size(), VK_NULL_HANDLE);
+
+    VkSemaphoreCreateInfo semaphore_info = {};
+    semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+    VkFenceCreateInfo fence_info = {};
+    fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+    for (int i = 0; i < LAVA_MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        if (vkCreateSemaphore(device, &semaphore_info, nullptr, &image_available_semaphores[i]) != VK_SUCCESS ||
+            vkCreateSemaphore(device, &semaphore_info, nullptr, &render_finished_semaphores[i]) != VK_SUCCESS ||
+            vkCreateFence(device, &fence_info, nullptr, &inflight_fences[i]) != VK_SUCCESS)
+            throw std::runtime_error("Failed to create semaphores");
+    }
+
+    current_frame = 0;
 }
 
 lava_renderer::~lava_renderer()
 {
+    for (int i = 0; i < LAVA_MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        vkDestroySemaphore(device, image_available_semaphores[i], nullptr);
+        vkDestroySemaphore(device, render_finished_semaphores[i], nullptr);
+        vkDestroyFence(device, inflight_fences[i], nullptr);
+    }
     vkDestroyCommandPool(device, command_pool, nullptr);
     for (const auto framebuffer : swapchain_framebuffers)
         vkDestroyFramebuffer(device, framebuffer, nullptr);
@@ -476,4 +517,54 @@ lava_renderer::~lava_renderer()
     lvk::destroy_debug_messenger(vulkan_instance, debug_messenger);
 #endif
     vkDestroyInstance(vulkan_instance, nullptr);
+}
+
+void lava_renderer::draw_frame()
+{
+    vkWaitForFences(device, 1, &inflight_fences[current_frame], VK_TRUE, UINT64_MAX);
+
+    uint32_t image_index;
+    vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, image_available_semaphores[current_frame], VK_NULL_HANDLE, &image_index);
+
+    if (inflight_images[image_index] != VK_NULL_HANDLE)
+        vkWaitForFences(device, 1, &inflight_images[image_index], VK_TRUE, UINT64_MAX);
+
+    inflight_images[image_index] = inflight_fences[current_frame];
+
+    VkSubmitInfo submit_info = {};
+    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+    VkSemaphore wait_semaphores[] = { image_available_semaphores[current_frame] };
+    VkPipelineStageFlags wait_stages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+    submit_info.waitSemaphoreCount = 1;
+    submit_info.pWaitSemaphores = wait_semaphores;
+    submit_info.pWaitDstStageMask = wait_stages;
+    submit_info.commandBufferCount = 1;
+    submit_info.pCommandBuffers = &command_buffers[image_index];
+
+    VkSemaphore signal_semaphores[] = { render_finished_semaphores[current_frame] };
+    submit_info.signalSemaphoreCount = 1;
+    submit_info.pSignalSemaphores = signal_semaphores;
+
+    vkResetFences(device, 1, &inflight_fences[current_frame]);
+
+    if (vkQueueSubmit(graphics_queue, 1, &submit_info, inflight_fences[current_frame]) != VK_SUCCESS)
+        throw std::runtime_error("Failed to submit draw command buffer");
+
+    VkPresentInfoKHR present_info = {};
+    present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    present_info.waitSemaphoreCount = 1;
+    present_info.pWaitSemaphores = signal_semaphores;
+
+    VkSwapchainKHR swapchains[] = { swapchain };
+    present_info.swapchainCount = 1;
+    present_info.pSwapchains = swapchains;
+    present_info.pImageIndices = &image_index;
+    present_info.pResults = nullptr;
+
+    vkQueuePresentKHR(present_queue, &present_info);
+
+    vkQueueWaitIdle(present_queue);
+
+    current_frame = (current_frame + 1) % LAVA_MAX_FRAMES_IN_FLIGHT;
 }

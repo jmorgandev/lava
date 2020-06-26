@@ -19,6 +19,7 @@ public:
     int window_width, window_height;
 
     void poll_events();
+    void draw_frame();
 };
 
 #endif
