@@ -3,6 +3,7 @@
 
 #include <vulkan/vulkan.h>
 #include <vector>
+#include "typedef.h"
 
 class lava_app;
 
@@ -15,6 +16,7 @@ public:
 
     ~lava_renderer();
 
+private:
     VkInstance vulkan_instance;
     VkDebugUtilsMessengerEXT debug_messenger;
     VkPhysicalDevice physical_device;
@@ -40,6 +42,16 @@ public:
     std::vector<VkFence> inflight_images;
 
     int current_frame;
+
+    void create_swapchain(uint width, uint height);
+    void create_image_views();
+    void create_render_pass();
+    void create_graphics_pipeline();
+    void create_framebuffers();
+    void create_command_pool();
+    void create_command_buffers();
+    void create_sync_objects();
+    void recreate_swapchain();
 };
 
 #endif

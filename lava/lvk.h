@@ -5,7 +5,7 @@
 #include <SDL/SDL_vulkan.h>
 #include <vector>
 
-#define LVK_NULL_QUEUE_FAMILY -1
+constexpr int LVK_NULL_QUEUE_FAMILY = -1;
 #define USE_VALIDATION _DEBUG || true
 #define DEVICE_VALIDATION_LAYER_COMPATIBILITY false
 
@@ -20,8 +20,8 @@ namespace lvk
 
     struct QueueFamilyInfo
     {
-        int graphics_family = LVK_NULL_QUEUE_FAMILY;
-        int present_family = LVK_NULL_QUEUE_FAMILY;
+        int graphics_family;
+        int present_family;
     };
     QueueFamilyInfo get_queue_family_info(VkPhysicalDevice device, VkSurfaceKHR surface);
 

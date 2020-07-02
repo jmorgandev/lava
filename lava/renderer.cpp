@@ -164,10 +164,25 @@ lava_renderer::lava_renderer(lava_app * app)
     vkGetDeviceQueue(device, queue_family_info.graphics_family, 0, &graphics_queue);
     vkGetDeviceQueue(device, queue_family_info.present_family, 0, &present_queue);
 
+    create_swapchain(app->window_width, app->window_height);
+    create_image_views();
+    create_render_pass();
+    create_graphics_pipeline();
+    create_framebuffers();
+    create_command_pool();
+    create_command_buffers();
+    create_sync_objects();
+
+    current_frame = 0;
+}
+
+void lava_renderer::create_swapchain(uint width, uint height)
+{
     lvk::DeviceSurfaceDetails swapchain_support = lvk::query_surface_details(physical_device, window_surface);
+    VkExtent2D extent = lvk::choose_swapchain_extent(swapchain_support.capabilities, width, height);
+
     VkSurfaceFormatKHR swapchain_format = lvk::choose_swapchain_surface_format(swapchain_support.formats);
     VkPresentModeKHR swapchain_present_mode = lvk::choose_swapchain_present_mode(swapchain_support.present_modes);
-    VkExtent2D extent = lvk::choose_swapchain_extent(swapchain_support.capabilities, app->window_width, app->window_height);
 
     uint32_t swapchain_length = swapchain_support.capabilities.minImageCount + 1;
     if (swapchain_support.capabilities.maxImageCount > 0 && swapchain_length > swapchain_support.capabilities.maxImageCount)
@@ -185,12 +200,13 @@ lava_renderer::lava_renderer(lava_app * app)
     swapchain_create_info.imageArrayLayers = 1;
     swapchain_create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
+    lvk::QueueFamilyInfo queue_families = lvk::get_queue_family_info(physical_device, window_surface);
 
-    if (queue_family_info.graphics_family != queue_family_info.present_family)
+    if (queue_families.graphics_family != queue_families.present_family)
     {
         swapchain_create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
         swapchain_create_info.queueFamilyIndexCount = 2;
-        uint32_t indices[] = { queue_family_info.graphics_family, queue_family_info.present_family };
+        uint32_t indices[] = { queue_families.graphics_family, queue_families.present_family };
         swapchain_create_info.pQueueFamilyIndices = indices;
     }
     else
@@ -217,7 +233,10 @@ lava_renderer::lava_renderer(lava_app * app)
 
     swapchain_image_format = swapchain_format.format;
     swapchain_extent = extent;
+}
 
+void lava_renderer::create_image_views()
+{
     swapchain_image_views.resize(swapchain_images.size());
     for (int i = 0; i < swapchain_images.size(); i++)
     {
@@ -240,7 +259,10 @@ lava_renderer::lava_renderer(lava_app * app)
         if (vkCreateImageView(device, &create_info, nullptr, &swapchain_image_views[i]) != VK_SUCCESS)
             throw std::runtime_error("Failed to create image view!");
     }
+}
 
+void lava_renderer::create_render_pass()
+{
     VkAttachmentDescription color_attachment = {};
     color_attachment.format = swapchain_image_format;
     color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -280,10 +302,13 @@ lava_renderer::lava_renderer(lava_app * app)
 
     if (vkCreateRenderPass(device, &render_pass_info, nullptr, &render_pass) != VK_SUCCESS)
         throw std::runtime_error("Failed to create render pass");
+}
 
+void lava_renderer::create_graphics_pipeline()
+{
     auto vert_shader_source = load_file("shaders/vert.spv");
     auto frag_shader_source = load_file("shaders/frag.spv");
-    
+
     VkShaderModule vertex_shader = lvk::create_shader_module(device, vert_shader_source);
     VkShaderModule fragment_shader = lvk::create_shader_module(device, frag_shader_source);
 
@@ -348,10 +373,10 @@ lava_renderer::lava_renderer(lava_app * app)
     multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
     VkPipelineColorBlendAttachmentState color_blend_attachment = {};
-    color_blend_attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | 
-                                            VK_COLOR_COMPONENT_G_BIT |
-                                            VK_COLOR_COMPONENT_B_BIT |
-                                            VK_COLOR_COMPONENT_A_BIT;
+    color_blend_attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT |
+        VK_COLOR_COMPONENT_G_BIT |
+        VK_COLOR_COMPONENT_B_BIT |
+        VK_COLOR_COMPONENT_A_BIT;
     color_blend_attachment.blendEnable = VK_FALSE;
 
     VkPipelineColorBlendStateCreateInfo color_blending = {};
@@ -390,7 +415,7 @@ lava_renderer::lava_renderer(lava_app * app)
     pipeline_info.pDepthStencilState = nullptr;
     pipeline_info.pColorBlendState = &color_blending;
     pipeline_info.pDynamicState = nullptr;
-    
+
     pipeline_info.layout = pipeline_layout;
     pipeline_info.renderPass = render_pass;
     pipeline_info.subpass = 0;
@@ -402,7 +427,10 @@ lava_renderer::lava_renderer(lava_app * app)
 
     vkDestroyShaderModule(device, vertex_shader, nullptr);
     vkDestroyShaderModule(device, fragment_shader, nullptr);
+}
 
+void lava_renderer::create_framebuffers()
+{
     swapchain_framebuffers.resize(swapchain_image_views.size());
     for (int i = 0; i < swapchain_image_views.size(); i++)
     {
@@ -420,7 +448,11 @@ lava_renderer::lava_renderer(lava_app * app)
         if (vkCreateFramebuffer(device, &framebuffer_info, nullptr, &swapchain_framebuffers[i]) != VK_SUCCESS)
             throw std::runtime_error("Failed to create framebuffer");
     }
+}
 
+void lava_renderer::create_command_pool()
+{
+    lvk::QueueFamilyInfo queue_family_info = lvk::get_queue_family_info(physical_device, window_surface);
     VkCommandPoolCreateInfo pool_info = {};
     pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     pool_info.queueFamilyIndex = queue_family_info.graphics_family;
@@ -428,7 +460,10 @@ lava_renderer::lava_renderer(lava_app * app)
 
     if (vkCreateCommandPool(device, &pool_info, nullptr, &command_pool) != VK_SUCCESS)
         throw std::runtime_error("Failed to create command pool");
+}
 
+void lava_renderer::create_command_buffers()
+{
     command_buffers.resize(swapchain_framebuffers.size());
 
     VkCommandBufferAllocateInfo alloc_info = {};
@@ -470,7 +505,10 @@ lava_renderer::lava_renderer(lava_app * app)
         if (vkEndCommandBuffer(command_buffers[i]) != VK_SUCCESS)
             throw std::runtime_error("Failed to record command buffer");
     }
+}
 
+void lava_renderer::create_sync_objects()
+{
     image_available_semaphores.resize(LAVA_MAX_FRAMES_IN_FLIGHT);
     render_finished_semaphores.resize(LAVA_MAX_FRAMES_IN_FLIGHT);
     inflight_fences.resize(LAVA_MAX_FRAMES_IN_FLIGHT);
@@ -490,33 +528,6 @@ lava_renderer::lava_renderer(lava_app * app)
             vkCreateFence(device, &fence_info, nullptr, &inflight_fences[i]) != VK_SUCCESS)
             throw std::runtime_error("Failed to create semaphores");
     }
-
-    current_frame = 0;
-}
-
-lava_renderer::~lava_renderer()
-{
-    for (int i = 0; i < LAVA_MAX_FRAMES_IN_FLIGHT; i++)
-    {
-        vkDestroySemaphore(device, image_available_semaphores[i], nullptr);
-        vkDestroySemaphore(device, render_finished_semaphores[i], nullptr);
-        vkDestroyFence(device, inflight_fences[i], nullptr);
-    }
-    vkDestroyCommandPool(device, command_pool, nullptr);
-    for (const auto framebuffer : swapchain_framebuffers)
-        vkDestroyFramebuffer(device, framebuffer, nullptr);
-    vkDestroyPipeline(device, graphics_pipeline, nullptr);
-    vkDestroyPipelineLayout(device, pipeline_layout, nullptr);
-    vkDestroyRenderPass(device, render_pass, nullptr);
-    for (const auto image_view : swapchain_image_views)
-        vkDestroyImageView(device, image_view, nullptr);
-    vkDestroySwapchainKHR(device, swapchain, nullptr);
-    vkDestroySurfaceKHR(vulkan_instance, window_surface, nullptr);
-    vkDestroyDevice(device, nullptr);
-#if USE_VALIDATION
-    lvk::destroy_debug_messenger(vulkan_instance, debug_messenger);
-#endif
-    vkDestroyInstance(vulkan_instance, nullptr);
 }
 
 void lava_renderer::draw_frame()
@@ -567,4 +578,29 @@ void lava_renderer::draw_frame()
     vkQueueWaitIdle(present_queue);
 
     current_frame = (current_frame + 1) % LAVA_MAX_FRAMES_IN_FLIGHT;
+}
+
+lava_renderer::~lava_renderer()
+{
+    for (int i = 0; i < LAVA_MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        vkDestroySemaphore(device, image_available_semaphores[i], nullptr);
+        vkDestroySemaphore(device, render_finished_semaphores[i], nullptr);
+        vkDestroyFence(device, inflight_fences[i], nullptr);
+    }
+    vkDestroyCommandPool(device, command_pool, nullptr);
+    for (const auto framebuffer : swapchain_framebuffers)
+        vkDestroyFramebuffer(device, framebuffer, nullptr);
+    vkDestroyPipeline(device, graphics_pipeline, nullptr);
+    vkDestroyPipelineLayout(device, pipeline_layout, nullptr);
+    vkDestroyRenderPass(device, render_pass, nullptr);
+    for (const auto image_view : swapchain_image_views)
+        vkDestroyImageView(device, image_view, nullptr);
+    vkDestroySwapchainKHR(device, swapchain, nullptr);
+    vkDestroySurfaceKHR(vulkan_instance, window_surface, nullptr);
+    vkDestroyDevice(device, nullptr);
+#if USE_VALIDATION
+    lvk::destroy_debug_messenger(vulkan_instance, debug_messenger);
+#endif
+    vkDestroyInstance(vulkan_instance, nullptr);
 }

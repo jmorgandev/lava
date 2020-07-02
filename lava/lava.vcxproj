@@ -129,6 +129,7 @@
     <ClInclude Include="app.h" />
     <ClInclude Include="lvk.h" />
     <ClInclude Include="renderer.h" />
+    <ClInclude Include="typedef.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

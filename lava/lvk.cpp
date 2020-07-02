@@ -107,7 +107,7 @@ namespace lvk
 
     QueueFamilyInfo get_queue_family_info(VkPhysicalDevice device, VkSurfaceKHR surface)
     {
-        QueueFamilyInfo info;
+        QueueFamilyInfo info = { LVK_NULL_QUEUE_FAMILY, LVK_NULL_QUEUE_FAMILY };
         uint32_t count;
         vkGetPhysicalDeviceQueueFamilyProperties(device, &count, nullptr);
         std::vector<VkQueueFamilyProperties> properties(count);
