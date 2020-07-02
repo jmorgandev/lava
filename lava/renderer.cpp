@@ -164,7 +164,10 @@ lava_renderer::lava_renderer(lava_app * app)
     vkGetDeviceQueue(device, queue_family_info.graphics_family, 0, &graphics_queue);
     vkGetDeviceQueue(device, queue_family_info.present_family, 0, &present_queue);
 
-    create_swapchain(app->window_width, app->window_height);
+    window_width = app->window_width;
+    window_height = app->window_height;
+
+    create_swapchain();
     create_image_views();
     create_render_pass();
     create_graphics_pipeline();
@@ -174,12 +177,13 @@ lava_renderer::lava_renderer(lava_app * app)
     create_sync_objects();
 
     current_frame = 0;
+    window_resized = false;
 }
 
-void lava_renderer::create_swapchain(uint width, uint height)
+void lava_renderer::create_swapchain()
 {
     lvk::DeviceSurfaceDetails swapchain_support = lvk::query_surface_details(physical_device, window_surface);
-    VkExtent2D extent = lvk::choose_swapchain_extent(swapchain_support.capabilities, width, height);
+    VkExtent2D extent = lvk::choose_swapchain_extent(swapchain_support.capabilities, window_width, window_height);
 
     VkSurfaceFormatKHR swapchain_format = lvk::choose_swapchain_surface_format(swapchain_support.formats);
     VkPresentModeKHR swapchain_present_mode = lvk::choose_swapchain_present_mode(swapchain_support.present_modes);
@@ -530,6 +534,40 @@ void lava_renderer::create_sync_objects()
     }
 }
 
+void lava_renderer::destroy_swapchain()
+{
+    for (const auto framebuffer : swapchain_framebuffers)
+        vkDestroyFramebuffer(device, framebuffer, nullptr);
+    vkFreeCommandBuffers(device, command_pool, (uint32_t)command_buffers.size(), command_buffers.data());
+    vkDestroyPipeline(device, graphics_pipeline, nullptr);
+    vkDestroyPipelineLayout(device, pipeline_layout, nullptr);
+    vkDestroyRenderPass(device, render_pass, nullptr);
+    for (const auto image_view : swapchain_image_views)
+        vkDestroyImageView(device, image_view, nullptr);
+    vkDestroySwapchainKHR(device, swapchain, nullptr);
+}
+
+void lava_renderer::recreate_swapchain()
+{
+    vkDeviceWaitIdle(device);
+
+    destroy_swapchain();
+
+    create_swapchain();
+    create_image_views();
+    create_render_pass();
+    create_graphics_pipeline();
+    create_framebuffers();
+    create_command_buffers();
+}
+
+void lava_renderer::handle_window_resize(uint width, uint height)
+{
+    window_width = width;
+    window_height = height;
+    window_resized = true;
+}
+
 void lava_renderer::draw_frame()
 {
     vkWaitForFences(device, 1, &inflight_fences[current_frame], VK_TRUE, UINT64_MAX);
@@ -582,6 +620,8 @@ void lava_renderer::draw_frame()
 
 lava_renderer::~lava_renderer()
 {
+    destroy_swapchain();
+
     for (int i = 0; i < LAVA_MAX_FRAMES_IN_FLIGHT; i++)
     {
         vkDestroySemaphore(device, image_available_semaphores[i], nullptr);
@@ -589,18 +629,11 @@ lava_renderer::~lava_renderer()
         vkDestroyFence(device, inflight_fences[i], nullptr);
     }
     vkDestroyCommandPool(device, command_pool, nullptr);
-    for (const auto framebuffer : swapchain_framebuffers)
-        vkDestroyFramebuffer(device, framebuffer, nullptr);
-    vkDestroyPipeline(device, graphics_pipeline, nullptr);
-    vkDestroyPipelineLayout(device, pipeline_layout, nullptr);
-    vkDestroyRenderPass(device, render_pass, nullptr);
-    for (const auto image_view : swapchain_image_views)
-        vkDestroyImageView(device, image_view, nullptr);
-    vkDestroySwapchainKHR(device, swapchain, nullptr);
-    vkDestroySurfaceKHR(vulkan_instance, window_surface, nullptr);
     vkDestroyDevice(device, nullptr);
+    
 #if USE_VALIDATION
     lvk::destroy_debug_messenger(vulkan_instance, debug_messenger);
 #endif
+    vkDestroySurfaceKHR(vulkan_instance, window_surface, nullptr);
     vkDestroyInstance(vulkan_instance, nullptr);
 }

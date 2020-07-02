@@ -16,6 +16,8 @@ public:
 
     ~lava_renderer();
 
+    void handle_window_resize(uint width, uint height);
+
 private:
     VkInstance vulkan_instance;
     VkDebugUtilsMessengerEXT debug_messenger;
@@ -43,7 +45,7 @@ private:
 
     int current_frame;
 
-    void create_swapchain(uint width, uint height);
+    void create_swapchain();
     void create_image_views();
     void create_render_pass();
     void create_graphics_pipeline();
@@ -51,7 +53,11 @@ private:
     void create_command_pool();
     void create_command_buffers();
     void create_sync_objects();
+    void destroy_swapchain();
     void recreate_swapchain();
+
+    bool window_resized;
+    uint window_width, window_height;
 };
 
 #endif
