@@ -6,6 +6,12 @@
 #include "typedef.h"
 
 class lava_app;
+struct SDL_Window;
+
+namespace lvk
+{
+    struct DeviceSurfaceDetails;
+}
 
 class lava_renderer
 {
@@ -16,7 +22,7 @@ public:
 
     ~lava_renderer();
 
-    void handle_window_resize(uint width, uint height);
+    void handle_window_resize();
 
 private:
     VkInstance vulkan_instance;
@@ -45,7 +51,7 @@ private:
 
     int current_frame;
 
-    void create_swapchain();
+    void create_swapchain(lvk::DeviceSurfaceDetails surface_details);
     void create_image_views();
     void create_render_pass();
     void create_graphics_pipeline();
@@ -56,8 +62,8 @@ private:
     void destroy_swapchain();
     void recreate_swapchain();
 
+    SDL_Window * sdl_window;
     bool window_resized;
-    uint window_width, window_height;
 };
 
 #endif

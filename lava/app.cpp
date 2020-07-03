@@ -24,6 +24,10 @@ void lava_app::poll_events()
         case SDL_QUIT:
             running = false;
             break;
+        case SDL_WINDOWEVENT:
+            if (e.window.event == SDL_WINDOWEVENT_RESIZED)
+                renderer->handle_window_resize();
+            break;
         }
     }
 }
