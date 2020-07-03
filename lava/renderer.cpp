@@ -164,10 +164,10 @@ lava_renderer::lava_renderer(lava_app * app)
     vkGetDeviceQueue(device, queue_family_info.graphics_family, 0, &graphics_queue);
     vkGetDeviceQueue(device, queue_family_info.present_family, 0, &present_queue);
 
-    window_width = app->window_width;
-    window_height = app->window_height;
+    sdl_window = app->sdl_window;
 
-    create_swapchain();
+    lvk::DeviceSurfaceDetails swapchain_support = lvk::query_surface_details(physical_device, window_surface);
+    create_swapchain(swapchain_support);
     create_image_views();
     create_render_pass();
     create_graphics_pipeline();
@@ -180,18 +180,20 @@ lava_renderer::lava_renderer(lava_app * app)
     window_resized = false;
 }
 
-void lava_renderer::create_swapchain()
+void lava_renderer::create_swapchain(lvk::DeviceSurfaceDetails surface_details)
 {
-    lvk::DeviceSurfaceDetails swapchain_support = lvk::query_surface_details(physical_device, window_surface);
-    VkExtent2D extent = lvk::choose_swapchain_extent(swapchain_support.capabilities, window_width, window_height);
+    int draw_width = 0, draw_height = 0;
+    SDL_Vulkan_GetDrawableSize(sdl_window, &draw_width, &draw_height);
 
-    VkSurfaceFormatKHR swapchain_format = lvk::choose_swapchain_surface_format(swapchain_support.formats);
-    VkPresentModeKHR swapchain_present_mode = lvk::choose_swapchain_present_mode(swapchain_support.present_modes);
+    VkExtent2D extent = lvk::choose_swapchain_extent(surface_details.capabilities, draw_width, draw_height);
 
-    uint32_t swapchain_length = swapchain_support.capabilities.minImageCount + 1;
-    if (swapchain_support.capabilities.maxImageCount > 0 && swapchain_length > swapchain_support.capabilities.maxImageCount)
+    VkSurfaceFormatKHR swapchain_format = lvk::choose_swapchain_surface_format(surface_details.formats);
+    VkPresentModeKHR swapchain_present_mode = lvk::choose_swapchain_present_mode(surface_details.present_modes);
+
+    uint32_t swapchain_length = surface_details.capabilities.minImageCount + 1;
+    if (surface_details.capabilities.maxImageCount > 0 && swapchain_length > surface_details.capabilities.maxImageCount)
     {
-        swapchain_length = swapchain_support.capabilities.maxImageCount;
+        swapchain_length = surface_details.capabilities.maxImageCount;
     }
 
     VkSwapchainCreateInfoKHR swapchain_create_info = {};
@@ -220,7 +222,7 @@ void lava_renderer::create_swapchain()
         swapchain_create_info.pQueueFamilyIndices = nullptr;
     }
 
-    swapchain_create_info.preTransform = swapchain_support.capabilities.currentTransform;
+    swapchain_create_info.preTransform = surface_details.capabilities.currentTransform;
     swapchain_create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
     swapchain_create_info.presentMode = swapchain_present_mode;
     swapchain_create_info.clipped = VK_TRUE;
@@ -549,11 +551,15 @@ void lava_renderer::destroy_swapchain()
 
 void lava_renderer::recreate_swapchain()
 {
+    lvk::DeviceSurfaceDetails surface_details = lvk::query_surface_details(physical_device, window_surface);
+    if (surface_details.capabilities.currentExtent.width == 0 || surface_details.capabilities.currentExtent.height == 0)
+        return;
+
     vkDeviceWaitIdle(device);
 
     destroy_swapchain();
 
-    create_swapchain();
+    create_swapchain(surface_details);
     create_image_views();
     create_render_pass();
     create_graphics_pipeline();
@@ -561,10 +567,8 @@ void lava_renderer::recreate_swapchain()
     create_command_buffers();
 }
 
-void lava_renderer::handle_window_resize(uint width, uint height)
+void lava_renderer::handle_window_resize()
 {
-    window_width = width;
-    window_height = height;
     window_resized = true;
 }
 
@@ -573,7 +577,14 @@ void lava_renderer::draw_frame()
     vkWaitForFences(device, 1, &inflight_fences[current_frame], VK_TRUE, UINT64_MAX);
 
     uint32_t image_index;
-    vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, image_available_semaphores[current_frame], VK_NULL_HANDLE, &image_index);
+    auto result = vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, image_available_semaphores[current_frame], VK_NULL_HANDLE, &image_index);
+    if (result == VK_ERROR_OUT_OF_DATE_KHR)
+    {
+        recreate_swapchain();
+        return;
+    }
+    else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
+        throw std::runtime_error("failed to acquire swap chain image");
 
     if (inflight_images[image_index] != VK_NULL_HANDLE)
         vkWaitForFences(device, 1, &inflight_images[image_index], VK_TRUE, UINT64_MAX);
@@ -611,7 +622,14 @@ void lava_renderer::draw_frame()
     present_info.pImageIndices = &image_index;
     present_info.pResults = nullptr;
 
-    vkQueuePresentKHR(present_queue, &present_info);
+    result = vkQueuePresentKHR(present_queue, &present_info);
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || window_resized)
+    {
+        window_resized = false;
+        recreate_swapchain();
+    }
+    else if (result != VK_SUCCESS)
+        throw std::runtime_error("failed to present swap chain image");
 
     vkQueueWaitIdle(present_queue);
 
