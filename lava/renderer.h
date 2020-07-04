@@ -43,6 +43,8 @@ private:
     VkPipeline graphics_pipeline;
     VkCommandPool command_pool;
     std::vector<VkCommandBuffer> command_buffers;
+    VkBuffer vertex_buffer;
+    VkDeviceMemory vertex_buffer_memory;
 
     std::vector<VkSemaphore> image_available_semaphores;
     std::vector<VkSemaphore> render_finished_semaphores;
@@ -57,6 +59,7 @@ private:
     void create_graphics_pipeline();
     void create_framebuffers();
     void create_command_pool();
+    void create_vertex_buffer();
     void create_command_buffers();
     void create_sync_objects();
     void destroy_swapchain();

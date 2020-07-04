@@ -215,6 +215,7 @@ lava_renderer::lava_renderer(lava_app * app)
     create_graphics_pipeline();
     create_framebuffers();
     create_command_pool();
+    create_vertex_buffer();
     create_command_buffers();
     create_sync_objects();
 
@@ -513,6 +514,38 @@ void lava_renderer::create_command_pool()
         throw std::runtime_error("Failed to create command pool");
 }
 
+void lava_renderer::create_vertex_buffer()
+{
+    VkBufferCreateInfo buffer_info = {};
+    buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    buffer_info.size = sizeof(vertices[0]) * vertices.size();
+    buffer_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    if (vkCreateBuffer(device, &buffer_info, nullptr, &vertex_buffer) != VK_SUCCESS)
+        throw std::runtime_error("failed to create vertex buffer");
+
+    VkMemoryRequirements memory_requirements;
+    vkGetBufferMemoryRequirements(device, vertex_buffer, &memory_requirements);
+
+    VkMemoryAllocateInfo alloc_info = {};
+    alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    alloc_info.allocationSize = memory_requirements.size;
+    alloc_info.memoryTypeIndex = lvk::find_memory_type(memory_requirements.memoryTypeBits,
+                                                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                                       physical_device);
+
+    if (vkAllocateMemory(device, &alloc_info, nullptr, &vertex_buffer_memory) != VK_SUCCESS)
+        throw std::runtime_error("failed to allocate vertex buffer memory");
+
+    vkBindBufferMemory(device, vertex_buffer, vertex_buffer_memory, 0);
+
+    void * data;
+    vkMapMemory(device, vertex_buffer_memory, 0, buffer_info.size, 0, &data);
+    memcpy_s(data, (size_t)alloc_info.allocationSize, vertices.data(), (size_t)buffer_info.size);
+    vkUnmapMemory(device, vertex_buffer_memory);
+}
+
 void lava_renderer::create_command_buffers()
 {
     command_buffers.resize(swapchain_framebuffers.size());
@@ -550,7 +583,12 @@ void lava_renderer::create_command_buffers()
         vkCmdBeginRenderPass(command_buffers[i], &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
 
         vkCmdBindPipeline(command_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline);
-        vkCmdDraw(command_buffers[i], 3, 1, 0, 0);
+
+        VkBuffer vertex_buffers[] = { vertex_buffer };
+        VkDeviceSize offsets[] = { 0 };
+        vkCmdBindVertexBuffers(command_buffers[i], 0, 1, vertex_buffers, offsets);
+
+        vkCmdDraw(command_buffers[i], (uint32_t)vertices.size(), 1, 0, 0);
         vkCmdEndRenderPass(command_buffers[i]);
 
         if (vkEndCommandBuffer(command_buffers[i]) != VK_SUCCESS)
@@ -684,6 +722,9 @@ void lava_renderer::draw_frame()
 lava_renderer::~lava_renderer()
 {
     destroy_swapchain();
+
+    vkDestroyBuffer(device, vertex_buffer, nullptr);
+    vkFreeMemory(device, vertex_buffer_memory, nullptr);
 
     for (int i = 0; i < LAVA_MAX_FRAMES_IN_FLIGHT; i++)
     {
