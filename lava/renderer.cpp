@@ -8,6 +8,48 @@
 
 #include <fstream>
 
+#include <glm/glm.hpp>
+#include <array>
+
+struct Vertex
+{
+    glm::vec2 position;
+    glm::vec3 color;
+
+    static VkVertexInputBindingDescription get_binding_description()
+    {
+        VkVertexInputBindingDescription description = {};
+        description.binding = 0;
+        description.stride = sizeof(Vertex);
+        description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+        return description;
+    }
+
+    static std::array<VkVertexInputAttributeDescription, 2> get_attribute_descriptions()
+    {
+        std::array<VkVertexInputAttributeDescription, 2> descriptions = {};
+
+        descriptions[0].binding = 0;
+        descriptions[0].location = 0;
+        descriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+        descriptions[0].offset = offsetof(Vertex, position);
+
+        descriptions[1].binding = 0;
+        descriptions[1].location = 1;
+        descriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+        descriptions[1].offset = offsetof(Vertex, color);
+
+        return descriptions;
+    }
+};
+
+const std::vector<Vertex> vertices =
+{
+    {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+    {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+};
+
 static constexpr int LAVA_MAX_FRAMES_IN_FLIGHT = 2;
 
 static std::vector<char> load_file(const std::string filename)
@@ -332,12 +374,15 @@ void lava_renderer::create_graphics_pipeline()
 
     VkPipelineShaderStageCreateInfo shader_stages[] = { vertex_stage_info, fragment_stage_info };
 
+    auto binding_description = Vertex::get_binding_description();
+    auto attribute_descriptions = Vertex::get_attribute_descriptions();
+
     VkPipelineVertexInputStateCreateInfo vertex_input_info = {};
     vertex_input_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertex_input_info.vertexBindingDescriptionCount = 0;
-    vertex_input_info.pVertexBindingDescriptions = nullptr;
-    vertex_input_info.vertexAttributeDescriptionCount = 0;
-    vertex_input_info.pVertexAttributeDescriptions = nullptr;
+    vertex_input_info.vertexBindingDescriptionCount = 1;
+    vertex_input_info.pVertexBindingDescriptions = &binding_description;
+    vertex_input_info.vertexAttributeDescriptionCount = (uint32_t)attribute_descriptions.size();
+    vertex_input_info.pVertexAttributeDescriptions = attribute_descriptions.data();
 
     VkPipelineInputAssemblyStateCreateInfo input_assembly = {};
     input_assembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
