@@ -45,9 +45,14 @@ struct Vertex
 
 const std::vector<Vertex> vertices =
 {
-    {{0.0f, -0.5f}, {1.0f, 1.0f, 1.0f}},
-    {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-    {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+    {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+    {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+    {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
+};
+const std::vector<uint16_t> indices =
+{
+    0, 1, 2, 2, 3, 0  
 };
 
 static constexpr int LAVA_MAX_FRAMES_IN_FLIGHT = 2;
@@ -216,6 +221,7 @@ lava_renderer::lava_renderer(lava_app * app)
     create_framebuffers();
     create_command_pool();
     create_vertex_buffer();
+    create_index_buffer();
     create_command_buffers();
     create_sync_objects();
 
@@ -536,6 +542,29 @@ void lava_renderer::create_vertex_buffer()
     vkFreeMemory(device, staging_buffer_memory, nullptr);
 }
 
+void lava_renderer::create_index_buffer()
+{
+    VkDeviceSize buffer_size = sizeof(indices[0]) * indices.size();
+    VkBuffer staging_buffer;
+    VkDeviceMemory staging_buffer_memory;
+
+    create_buffer(buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                  &staging_buffer, &staging_buffer_memory);
+
+    void * data;
+    vkMapMemory(device, staging_buffer_memory, 0, buffer_size, 0, &data);
+    memcpy_s(data, (size_t)buffer_size, indices.data(), (size_t)buffer_size);
+    vkUnmapMemory(device, staging_buffer_memory);
+
+    create_buffer(buffer_size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &index_buffer, &index_buffer_memory);
+
+    copy_buffer(staging_buffer, index_buffer, buffer_size);
+
+    vkDestroyBuffer(device, staging_buffer, nullptr);
+    vkFreeMemory(device, staging_buffer_memory, nullptr);
+}
+
 void lava_renderer::create_command_buffers()
 {
     command_buffers.resize(swapchain_framebuffers.size());
@@ -577,8 +606,10 @@ void lava_renderer::create_command_buffers()
         VkBuffer vertex_buffers[] = { vertex_buffer };
         VkDeviceSize offsets[] = { 0 };
         vkCmdBindVertexBuffers(command_buffers[i], 0, 1, vertex_buffers, offsets);
+        vkCmdBindIndexBuffer(command_buffers[i], index_buffer, 0, VK_INDEX_TYPE_UINT16);
 
-        vkCmdDraw(command_buffers[i], (uint32_t)vertices.size(), 1, 0, 0);
+        //vkCmdDraw(command_buffers[i], (uint32_t)vertices.size(), 1, 0, 0);
+        vkCmdDrawIndexed(command_buffers[i], (uint32_t)indices.size(), 1, 0, 0, 0);
         vkCmdEndRenderPass(command_buffers[i]);
 
         if (vkEndCommandBuffer(command_buffers[i]) != VK_SUCCESS)
@@ -769,6 +800,9 @@ void lava_renderer::draw_frame()
 lava_renderer::~lava_renderer()
 {
     destroy_swapchain();
+
+    vkDestroyBuffer(device, index_buffer, nullptr);
+    vkFreeMemory(device, index_buffer_memory, nullptr);
 
     vkDestroyBuffer(device, vertex_buffer, nullptr);
     vkFreeMemory(device, vertex_buffer_memory, nullptr);
