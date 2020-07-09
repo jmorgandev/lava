@@ -517,13 +517,23 @@ void lava_renderer::create_command_pool()
 void lava_renderer::create_vertex_buffer()
 {
     VkDeviceSize buffer_size = sizeof(vertices[0]) * vertices.size();
-    create_buffer(buffer_size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                  &vertex_buffer, &vertex_buffer_memory);
+    VkBuffer staging_buffer;
+    VkDeviceMemory staging_buffer_memory;
 
+    create_buffer(buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                  &staging_buffer, &staging_buffer_memory);
     void * data;
-    vkMapMemory(device, vertex_buffer_memory, 0, buffer_size, 0, &data);
+    vkMapMemory(device, staging_buffer_memory, 0, buffer_size, 0, &data);
     memcpy_s(data, (size_t)buffer_size, vertices.data(), (size_t)buffer_size);
-    vkUnmapMemory(device, vertex_buffer_memory);
+    vkUnmapMemory(device, staging_buffer_memory);
+
+    create_buffer(buffer_size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &vertex_buffer, &vertex_buffer_memory);
+
+    copy_buffer(staging_buffer, vertex_buffer, buffer_size);
+
+    vkDestroyBuffer(device, staging_buffer, nullptr);
+    vkFreeMemory(device, staging_buffer_memory, nullptr);
 }
 
 void lava_renderer::create_command_buffers()
@@ -658,6 +668,38 @@ void lava_renderer::create_buffer(VkDeviceSize size, VkBufferUsageFlags usage, V
         throw std::runtime_error("Failed to allocate buffer memory");
 
     vkBindBufferMemory(device, *buffer, *memory, 0);
+}
+
+void lava_renderer::copy_buffer(VkBuffer src, VkBuffer dst, VkDeviceSize size)
+{
+    VkCommandBufferAllocateInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    info.commandPool = command_pool;
+    info.commandBufferCount = 1;
+
+    VkCommandBuffer command_buffer;
+    vkAllocateCommandBuffers(device, &info, &command_buffer);
+
+    VkCommandBufferBeginInfo begin_info{};
+    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    
+    vkBeginCommandBuffer(command_buffer, &begin_info);
+    VkBufferCopy region{};
+    region.size = size;
+    vkCmdCopyBuffer(command_buffer, src, dst, 1, &region);
+    vkEndCommandBuffer(command_buffer);
+
+    VkSubmitInfo submit_info{};
+    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit_info.commandBufferCount = 1;
+    submit_info.pCommandBuffers = &command_buffer;
+
+    vkQueueSubmit(graphics_queue, 1, &submit_info, VK_NULL_HANDLE);
+    vkQueueWaitIdle(graphics_queue);
+
+    vkFreeCommandBuffers(device, command_pool, 1, &command_buffer);
 }
 
 void lava_renderer::draw_frame()
