@@ -45,7 +45,7 @@ struct Vertex
 
 const std::vector<Vertex> vertices =
 {
-    {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+    {{0.0f, -0.5f}, {1.0f, 1.0f, 1.0f}},
     {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
     {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
 };
@@ -516,33 +516,13 @@ void lava_renderer::create_command_pool()
 
 void lava_renderer::create_vertex_buffer()
 {
-    VkBufferCreateInfo buffer_info = {};
-    buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    buffer_info.size = sizeof(vertices[0]) * vertices.size();
-    buffer_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-    buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    if (vkCreateBuffer(device, &buffer_info, nullptr, &vertex_buffer) != VK_SUCCESS)
-        throw std::runtime_error("failed to create vertex buffer");
-
-    VkMemoryRequirements memory_requirements;
-    vkGetBufferMemoryRequirements(device, vertex_buffer, &memory_requirements);
-
-    VkMemoryAllocateInfo alloc_info = {};
-    alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    alloc_info.allocationSize = memory_requirements.size;
-    alloc_info.memoryTypeIndex = lvk::find_memory_type(memory_requirements.memoryTypeBits,
-                                                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                                       physical_device);
-
-    if (vkAllocateMemory(device, &alloc_info, nullptr, &vertex_buffer_memory) != VK_SUCCESS)
-        throw std::runtime_error("failed to allocate vertex buffer memory");
-
-    vkBindBufferMemory(device, vertex_buffer, vertex_buffer_memory, 0);
+    VkDeviceSize buffer_size = sizeof(vertices[0]) * vertices.size();
+    create_buffer(buffer_size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                  &vertex_buffer, &vertex_buffer_memory);
 
     void * data;
-    vkMapMemory(device, vertex_buffer_memory, 0, buffer_info.size, 0, &data);
-    memcpy_s(data, (size_t)alloc_info.allocationSize, vertices.data(), (size_t)buffer_info.size);
+    vkMapMemory(device, vertex_buffer_memory, 0, buffer_size, 0, &data);
+    memcpy_s(data, (size_t)buffer_size, vertices.data(), (size_t)buffer_size);
     vkUnmapMemory(device, vertex_buffer_memory);
 }
 
@@ -653,6 +633,31 @@ void lava_renderer::recreate_swapchain()
 void lava_renderer::handle_window_resize()
 {
     window_resized = true;
+}
+
+void lava_renderer::create_buffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer * buffer, VkDeviceMemory * memory)
+{
+    VkBufferCreateInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    info.size = size;
+    info.usage = usage;
+    info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    if (vkCreateBuffer(device, &info, nullptr, buffer) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create buffer");
+
+    VkMemoryRequirements mem_info;
+    vkGetBufferMemoryRequirements(device, *buffer, &mem_info);
+
+    VkMemoryAllocateInfo alloc_info{};
+    alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    alloc_info.allocationSize = mem_info.size;
+    alloc_info.memoryTypeIndex = lvk::find_memory_type(mem_info.memoryTypeBits, properties, physical_device);
+
+    if (vkAllocateMemory(device, &alloc_info, nullptr, memory) != VK_SUCCESS)
+        throw std::runtime_error("Failed to allocate buffer memory");
+
+    vkBindBufferMemory(device, *buffer, *memory, 0);
 }
 
 void lava_renderer::draw_frame()

@@ -64,6 +64,7 @@ private:
     void create_sync_objects();
     void destroy_swapchain();
     void recreate_swapchain();
+    void create_buffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer * buffer, VkDeviceMemory * memory);
 
     SDL_Window * sdl_window;
     bool window_resized;
