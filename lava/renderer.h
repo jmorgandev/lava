@@ -50,6 +50,8 @@ private:
     VkDeviceMemory index_buffer_memory;
     VkDescriptorPool descriptor_pool;
     std::vector<VkDescriptorSet> descriptor_sets;
+    VkImage texture_image;
+    VkDeviceMemory texture_image_memory;
 
     std::vector<VkBuffer> uniform_buffers;
     std::vector<VkDeviceMemory> uniform_buffers_memory;
@@ -68,6 +70,7 @@ private:
     void create_graphics_pipeline();
     void create_framebuffers();
     void create_command_pool();
+    void create_texture_image();
     void create_vertex_buffer();
     void create_index_buffer();
     void create_uniform_buffers();
@@ -77,8 +80,15 @@ private:
     void create_sync_objects();
     void destroy_swapchain();
     void recreate_swapchain();
+    
     void create_buffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer * buffer, VkDeviceMemory * memory);
     void copy_buffer(VkBuffer src, VkBuffer dst, VkDeviceSize size);
+    void create_image(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage * image, VkDeviceMemory * memory);
+    VkCommandBuffer begin_single_time_commands();
+    void end_single_time_commands(VkCommandBuffer command_buffer);
+    void transition_image_layout(VkImage image, VkFormat format, VkImageLayout old_layout, VkImageLayout new_layout);
+    void copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+    
     void update_uniform_buffer(uint32_t current_image);
 
     SDL_Window * sdl_window;

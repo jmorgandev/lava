@@ -13,6 +13,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <array>
 #include <chrono>
+#include <stb/stb_image.h>
 
 struct Vertex
 {
@@ -121,9 +122,9 @@ lava_renderer::lava_renderer(lava_app * app)
     VkInstanceCreateInfo instance_create_info = {};
     instance_create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     instance_create_info.pApplicationInfo = &app_info;
-    instance_create_info.enabledExtensionCount = extensions.size();
+    instance_create_info.enabledExtensionCount = (uint32_t)extensions.size();
     instance_create_info.ppEnabledExtensionNames = extensions.data();
-    instance_create_info.enabledLayerCount = layers.size();
+    instance_create_info.enabledLayerCount = (uint32_t)layers.size();
     instance_create_info.ppEnabledLayerNames = layers.data();
     instance_create_info.pNext = nullptr;
 
@@ -231,6 +232,7 @@ lava_renderer::lava_renderer(lava_app * app)
     create_graphics_pipeline();
     create_framebuffers();
     create_command_pool();
+    create_texture_image();
     create_vertex_buffer();
     create_index_buffer();
     create_uniform_buffers();
@@ -275,7 +277,7 @@ void lava_renderer::create_swapchain(lvk::DeviceSurfaceDetails surface_details)
     {
         swapchain_create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
         swapchain_create_info.queueFamilyIndexCount = 2;
-        uint32_t indices[] = { queue_families.graphics_family, queue_families.present_family };
+        uint32_t indices[] = { (uint32_t)queue_families.graphics_family, (uint32_t)queue_families.present_family };
         swapchain_create_info.pQueueFamilyIndices = indices;
     }
     else
@@ -554,6 +556,39 @@ void lava_renderer::create_command_pool()
         throw std::runtime_error("Failed to create command pool");
 }
 
+void lava_renderer::create_texture_image()
+{
+    int width, height, channels;
+    stbi_uc * pixels = stbi_load("textures/bird_texture.jpg", &width, &height, &channels, STBI_rgb_alpha);
+    VkDeviceSize image_size = width * height * STBI_rgb_alpha;
+
+    if (!pixels)
+        throw std::runtime_error("Failed to load texture image");
+
+    VkBuffer staging_buffer;
+    VkDeviceMemory staging_buffer_memory;
+
+    create_buffer(image_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                  &staging_buffer, &staging_buffer_memory);
+
+    void * data;
+    vkMapMemory(device, staging_buffer_memory, 0, image_size, 0, &data);
+    memcpy_s(data, (size_t)image_size, pixels, (size_t)image_size);
+    vkUnmapMemory(device, staging_buffer_memory);
+
+    stbi_image_free(pixels);
+
+    create_image(width, height, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &texture_image, &texture_image_memory);
+
+    transition_image_layout(texture_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    copy_buffer_to_image(staging_buffer, texture_image, (uint32_t)width, (uint32_t)height);
+    transition_image_layout(texture_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    vkDestroyBuffer(device, staging_buffer, nullptr);
+    vkFreeMemory(device, staging_buffer_memory, nullptr);
+}
+
 void lava_renderer::create_vertex_buffer()
 {
     VkDeviceSize buffer_size = sizeof(vertices[0]) * vertices.size();
@@ -810,6 +845,116 @@ void lava_renderer::create_buffer(VkDeviceSize size, VkBufferUsageFlags usage, V
 
 void lava_renderer::copy_buffer(VkBuffer src, VkBuffer dst, VkDeviceSize size)
 {
+    VkCommandBuffer command_buffer = begin_single_time_commands();
+    VkBufferCopy region{};
+    region.size = size;
+    vkCmdCopyBuffer(command_buffer, src, dst, 1, &region);
+    end_single_time_commands(command_buffer);
+}
+
+void lava_renderer::transition_image_layout(VkImage image, VkFormat format, VkImageLayout old_layout, VkImageLayout new_layout)
+{
+    VkCommandBuffer command_buffer = begin_single_time_commands();
+
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = old_layout;
+    barrier.newLayout = new_layout;
+
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+    barrier.image = image;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+
+    VkPipelineStageFlags src_stage;
+    VkPipelineStageFlags dst_stage;
+
+    if (old_layout == VK_IMAGE_LAYOUT_UNDEFINED && new_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+    {
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+        src_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        dst_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    }
+    else if (old_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && new_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+    {
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+        src_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        dst_stage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    }
+    else throw std::invalid_argument("unsupported layout transition");
+
+    vkCmdPipelineBarrier(command_buffer, src_stage, dst_stage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+    end_single_time_commands(command_buffer);
+}
+
+void lava_renderer::copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height)
+{
+    VkCommandBuffer command_buffer = begin_single_time_commands();
+
+    VkBufferImageCopy region{};
+    region.bufferOffset = 0;
+    region.bufferRowLength = 0;
+    region.bufferImageHeight = 0;
+
+    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.mipLevel = 0;
+    region.imageSubresource.baseArrayLayer = 0;
+    region.imageSubresource.layerCount = 1;
+
+    region.imageOffset = { 0, 0, 0 };
+    region.imageExtent = { width, height, 1 };
+
+    vkCmdCopyBufferToImage(command_buffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+    end_single_time_commands(command_buffer);
+}
+
+void lava_renderer::create_image(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage * image, VkDeviceMemory * memory)
+{
+    VkImageCreateInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    info.imageType = VK_IMAGE_TYPE_2D;
+    info.extent.width = (uint32_t)width;
+    info.extent.height = (uint32_t)height;
+    info.extent.depth = 1;
+    info.mipLevels = 1;
+    info.arrayLayers = 1;
+    info.format = VK_FORMAT_R8G8B8A8_SRGB;
+    info.tiling = VK_IMAGE_TILING_OPTIMAL;
+    info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    info.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    info.samples = VK_SAMPLE_COUNT_1_BIT;
+
+    if (vkCreateImage(device, &info, nullptr, image) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create image!");
+
+    VkMemoryRequirements mrequirements;
+    vkGetImageMemoryRequirements(device, texture_image, &mrequirements);
+
+    VkMemoryAllocateInfo alloc_info{};
+    alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    alloc_info.allocationSize = mrequirements.size;
+    alloc_info.memoryTypeIndex = lvk::find_memory_type(mrequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, physical_device);
+
+    if (vkAllocateMemory(device, &alloc_info, nullptr, &texture_image_memory) != VK_SUCCESS)
+        throw std::runtime_error("Failed to allocate image memory");
+
+    vkBindImageMemory(device, texture_image, texture_image_memory, 0);
+}
+
+VkCommandBuffer lava_renderer::begin_single_time_commands()
+{
     VkCommandBufferAllocateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -822,19 +967,22 @@ void lava_renderer::copy_buffer(VkBuffer src, VkBuffer dst, VkDeviceSize size)
     VkCommandBufferBeginInfo begin_info{};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    
+
     vkBeginCommandBuffer(command_buffer, &begin_info);
-    VkBufferCopy region{};
-    region.size = size;
-    vkCmdCopyBuffer(command_buffer, src, dst, 1, &region);
+
+    return command_buffer;
+}
+
+void lava_renderer::end_single_time_commands(VkCommandBuffer command_buffer)
+{
     vkEndCommandBuffer(command_buffer);
 
-    VkSubmitInfo submit_info{};
-    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submit_info.commandBufferCount = 1;
-    submit_info.pCommandBuffers = &command_buffer;
+    VkSubmitInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    info.commandBufferCount = 1;
+    info.pCommandBuffers = &command_buffer;
 
-    vkQueueSubmit(graphics_queue, 1, &submit_info, VK_NULL_HANDLE);
+    vkQueueSubmit(graphics_queue, 1, &info, VK_NULL_HANDLE);
     vkQueueWaitIdle(graphics_queue);
 
     vkFreeCommandBuffers(device, command_pool, 1, &command_buffer);
@@ -927,6 +1075,9 @@ void lava_renderer::update_uniform_buffer(uint32_t current_image)
 lava_renderer::~lava_renderer()
 {
     destroy_swapchain();
+
+    vkDestroyImage(device, texture_image, nullptr);
+    vkFreeMemory(device, texture_image_memory, nullptr);
 
     vkDestroyDescriptorSetLayout(device, descriptor_set_layout, nullptr);
 

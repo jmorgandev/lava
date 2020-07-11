@@ -124,6 +124,7 @@
     <ClCompile Include="lvk.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="renderer.cpp" />
+    <ClCompile Include="thirdparty_header_impl.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="app.h" />
