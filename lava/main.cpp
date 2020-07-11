@@ -3,7 +3,7 @@
 
 int main(int argc, char** argv)
 {
-    auto app = std::make_unique<lava_app>("lava renderer", 1280, 720);
+    auto app = std::make_unique<lava::App>("lava renderer", 1280, 720);
     while (app->running)
     {
         app->poll_events();

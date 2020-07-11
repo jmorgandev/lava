@@ -15,6 +15,8 @@
 #include <chrono>
 #include <stb/stb_image.h>
 
+using namespace lava;
+
 struct Vertex
 {
     glm::vec2 position;
@@ -56,7 +58,7 @@ const std::vector<Vertex> vertices =
 };
 const std::vector<uint16_t> indices =
 {
-    0, 1, 2, 2, 3, 0  
+    0, 1, 2, 2, 3, 0
 };
 
 struct UniformBufferObject
@@ -84,15 +86,15 @@ static std::vector<char> load_file(const std::string filename)
 }
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
-                                                     VkDebugUtilsMessageTypeFlagsEXT type,
-                                                     const VkDebugUtilsMessengerCallbackDataEXT * callback_data,
-                                                     void * user_data)
+    VkDebugUtilsMessageTypeFlagsEXT type,
+    const VkDebugUtilsMessengerCallbackDataEXT * callback_data,
+    void * user_data)
 {
     printf("%s\n", callback_data->pMessage);
     return VK_FALSE;
 }
 
-lava_renderer::lava_renderer(lava_app * app)
+Renderer::Renderer(App * app)
 {
     // Register application information
     VkApplicationInfo app_info = {};
@@ -117,7 +119,7 @@ lava_renderer::lava_renderer(lava_app * app)
 
     auto extensions = lvk::filter_supported_extensions(requested_extensions);
     auto layers = lvk::filter_supported_layers(requested_layers);
-    
+
     // Create Vulkan instance
     VkInstanceCreateInfo instance_create_info = {};
     instance_create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -137,7 +139,7 @@ lava_renderer::lava_renderer(lava_app * app)
     {
         throw std::runtime_error("Failed to create instance!");
     }
-    
+
 #if USE_VALIDATION
     debug_messenger = lvk::make_debug_messenger(vulkan_instance, &debug_create_info);
 #endif
@@ -213,7 +215,7 @@ lava_renderer::lava_renderer(lava_app * app)
     device_create_info.ppEnabledLayerNames = layers.data();
 #else
     // Device specific validation layers are deprecated as of Vulkan 1.2
-    device_create_info.enabledLayerCount = 0; 
+    device_create_info.enabledLayerCount = 0;
 #endif
 
     if (vkCreateDevice(physical_device, &device_create_info, nullptr, &device) != VK_SUCCESS)
@@ -245,7 +247,7 @@ lava_renderer::lava_renderer(lava_app * app)
     window_resized = false;
 }
 
-void lava_renderer::create_swapchain(lvk::DeviceSurfaceDetails surface_details)
+void Renderer::create_swapchain(lvk::DeviceSurfaceDetails surface_details)
 {
     int draw_width = 0, draw_height = 0;
     SDL_Vulkan_GetDrawableSize(sdl_window, &draw_width, &draw_height);
@@ -306,7 +308,7 @@ void lava_renderer::create_swapchain(lvk::DeviceSurfaceDetails surface_details)
     swapchain_extent = extent;
 }
 
-void lava_renderer::create_image_views()
+void Renderer::create_image_views()
 {
     swapchain_image_views.resize(swapchain_images.size());
     for (int i = 0; i < swapchain_images.size(); i++)
@@ -332,7 +334,7 @@ void lava_renderer::create_image_views()
     }
 }
 
-void lava_renderer::create_render_pass()
+void Renderer::create_render_pass()
 {
     VkAttachmentDescription color_attachment = {};
     color_attachment.format = swapchain_image_format;
@@ -375,7 +377,7 @@ void lava_renderer::create_render_pass()
         throw std::runtime_error("Failed to create render pass");
 }
 
-void lava_renderer::create_descriptor_set_layout()
+void Renderer::create_descriptor_set_layout()
 {
     VkDescriptorSetLayoutBinding ubo_layout_binding{};
     ubo_layout_binding.binding = 0;
@@ -393,7 +395,7 @@ void lava_renderer::create_descriptor_set_layout()
         throw std::runtime_error("Failed to create descriptor set layout");
 }
 
-void lava_renderer::create_graphics_pipeline()
+void Renderer::create_graphics_pipeline()
 {
     auto vert_shader_source = load_file("shaders/vert.spv");
     auto frag_shader_source = load_file("shaders/frag.spv");
@@ -523,7 +525,7 @@ void lava_renderer::create_graphics_pipeline()
     vkDestroyShaderModule(device, fragment_shader, nullptr);
 }
 
-void lava_renderer::create_framebuffers()
+void Renderer::create_framebuffers()
 {
     swapchain_framebuffers.resize(swapchain_image_views.size());
     for (int i = 0; i < swapchain_image_views.size(); i++)
@@ -544,7 +546,7 @@ void lava_renderer::create_framebuffers()
     }
 }
 
-void lava_renderer::create_command_pool()
+void Renderer::create_command_pool()
 {
     lvk::QueueFamilyInfo queue_family_info = lvk::get_queue_family_info(physical_device, window_surface);
     VkCommandPoolCreateInfo pool_info = {};
@@ -556,7 +558,7 @@ void lava_renderer::create_command_pool()
         throw std::runtime_error("Failed to create command pool");
 }
 
-void lava_renderer::create_texture_image()
+void Renderer::create_texture_image()
 {
     int width, height, channels;
     stbi_uc * pixels = stbi_load("textures/bird_texture.jpg", &width, &height, &channels, STBI_rgb_alpha);
@@ -569,7 +571,7 @@ void lava_renderer::create_texture_image()
     VkDeviceMemory staging_buffer_memory;
 
     create_buffer(image_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                  &staging_buffer, &staging_buffer_memory);
+        &staging_buffer, &staging_buffer_memory);
 
     void * data;
     vkMapMemory(device, staging_buffer_memory, 0, image_size, 0, &data);
@@ -579,7 +581,7 @@ void lava_renderer::create_texture_image()
     stbi_image_free(pixels);
 
     create_image(width, height, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &texture_image, &texture_image_memory);
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &texture_image, &texture_image_memory);
 
     transition_image_layout(texture_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     copy_buffer_to_image(staging_buffer, texture_image, (uint32_t)width, (uint32_t)height);
@@ -589,21 +591,21 @@ void lava_renderer::create_texture_image()
     vkFreeMemory(device, staging_buffer_memory, nullptr);
 }
 
-void lava_renderer::create_vertex_buffer()
+void Renderer::create_vertex_buffer()
 {
     VkDeviceSize buffer_size = sizeof(vertices[0]) * vertices.size();
     VkBuffer staging_buffer;
     VkDeviceMemory staging_buffer_memory;
 
     create_buffer(buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                  &staging_buffer, &staging_buffer_memory);
+        &staging_buffer, &staging_buffer_memory);
     void * data;
     vkMapMemory(device, staging_buffer_memory, 0, buffer_size, 0, &data);
     memcpy_s(data, (size_t)buffer_size, vertices.data(), (size_t)buffer_size);
     vkUnmapMemory(device, staging_buffer_memory);
 
     create_buffer(buffer_size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &vertex_buffer, &vertex_buffer_memory);
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &vertex_buffer, &vertex_buffer_memory);
 
     copy_buffer(staging_buffer, vertex_buffer, buffer_size);
 
@@ -611,14 +613,14 @@ void lava_renderer::create_vertex_buffer()
     vkFreeMemory(device, staging_buffer_memory, nullptr);
 }
 
-void lava_renderer::create_index_buffer()
+void Renderer::create_index_buffer()
 {
     VkDeviceSize buffer_size = sizeof(indices[0]) * indices.size();
     VkBuffer staging_buffer;
     VkDeviceMemory staging_buffer_memory;
 
     create_buffer(buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                  &staging_buffer, &staging_buffer_memory);
+        &staging_buffer, &staging_buffer_memory);
 
     void * data;
     vkMapMemory(device, staging_buffer_memory, 0, buffer_size, 0, &data);
@@ -626,7 +628,7 @@ void lava_renderer::create_index_buffer()
     vkUnmapMemory(device, staging_buffer_memory);
 
     create_buffer(buffer_size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &index_buffer, &index_buffer_memory);
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &index_buffer, &index_buffer_memory);
 
     copy_buffer(staging_buffer, index_buffer, buffer_size);
 
@@ -634,7 +636,7 @@ void lava_renderer::create_index_buffer()
     vkFreeMemory(device, staging_buffer_memory, nullptr);
 }
 
-void lava_renderer::create_uniform_buffers()
+void Renderer::create_uniform_buffers()
 {
     VkDeviceSize buffer_size = sizeof(UniformBufferObject);
     uniform_buffers.resize(swapchain_images.size());
@@ -643,11 +645,11 @@ void lava_renderer::create_uniform_buffers()
     for (size_t i = 0; i < swapchain_images.size(); i++)
     {
         create_buffer(buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                      &uniform_buffers[i], &uniform_buffers_memory[i]);
+            &uniform_buffers[i], &uniform_buffers_memory[i]);
     }
 }
 
-void lava_renderer::create_descriptor_pool()
+void Renderer::create_descriptor_pool()
 {
     VkDescriptorPoolSize size{};
     size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -663,7 +665,7 @@ void lava_renderer::create_descriptor_pool()
         throw std::runtime_error("Failed to create descriptor pool");
 }
 
-void lava_renderer::create_descriptor_sets()
+void Renderer::create_descriptor_sets()
 {
     std::vector<VkDescriptorSetLayout> layouts(swapchain_images.size(), descriptor_set_layout);
     VkDescriptorSetAllocateInfo alloc_info{};
@@ -696,7 +698,7 @@ void lava_renderer::create_descriptor_sets()
     }
 }
 
-void lava_renderer::create_command_buffers()
+void Renderer::create_command_buffers()
 {
     command_buffers.resize(swapchain_framebuffers.size());
 
@@ -748,7 +750,7 @@ void lava_renderer::create_command_buffers()
     }
 }
 
-void lava_renderer::create_sync_objects()
+void Renderer::create_sync_objects()
 {
     image_available_semaphores.resize(LAVA_MAX_FRAMES_IN_FLIGHT);
     render_finished_semaphores.resize(LAVA_MAX_FRAMES_IN_FLIGHT);
@@ -771,7 +773,7 @@ void lava_renderer::create_sync_objects()
     }
 }
 
-void lava_renderer::destroy_swapchain()
+void Renderer::destroy_swapchain()
 {
     for (const auto framebuffer : swapchain_framebuffers)
         vkDestroyFramebuffer(device, framebuffer, nullptr);
@@ -792,7 +794,7 @@ void lava_renderer::destroy_swapchain()
     vkDestroyDescriptorPool(device, descriptor_pool, nullptr);
 }
 
-void lava_renderer::recreate_swapchain()
+void Renderer::recreate_swapchain()
 {
     lvk::DeviceSurfaceDetails surface_details = lvk::query_surface_details(physical_device, window_surface);
     if (surface_details.capabilities.currentExtent.width == 0 || surface_details.capabilities.currentExtent.height == 0)
@@ -813,12 +815,12 @@ void lava_renderer::recreate_swapchain()
     create_command_buffers();
 }
 
-void lava_renderer::handle_window_resize()
+void Renderer::handle_window_resize()
 {
     window_resized = true;
 }
 
-void lava_renderer::create_buffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer * buffer, VkDeviceMemory * memory)
+void Renderer::create_buffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer * buffer, VkDeviceMemory * memory)
 {
     VkBufferCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -843,7 +845,7 @@ void lava_renderer::create_buffer(VkDeviceSize size, VkBufferUsageFlags usage, V
     vkBindBufferMemory(device, *buffer, *memory, 0);
 }
 
-void lava_renderer::copy_buffer(VkBuffer src, VkBuffer dst, VkDeviceSize size)
+void Renderer::copy_buffer(VkBuffer src, VkBuffer dst, VkDeviceSize size)
 {
     VkCommandBuffer command_buffer = begin_single_time_commands();
     VkBufferCopy region{};
@@ -852,7 +854,7 @@ void lava_renderer::copy_buffer(VkBuffer src, VkBuffer dst, VkDeviceSize size)
     end_single_time_commands(command_buffer);
 }
 
-void lava_renderer::transition_image_layout(VkImage image, VkFormat format, VkImageLayout old_layout, VkImageLayout new_layout)
+void Renderer::transition_image_layout(VkImage image, VkFormat format, VkImageLayout old_layout, VkImageLayout new_layout)
 {
     VkCommandBuffer command_buffer = begin_single_time_commands();
 
@@ -897,7 +899,7 @@ void lava_renderer::transition_image_layout(VkImage image, VkFormat format, VkIm
     end_single_time_commands(command_buffer);
 }
 
-void lava_renderer::copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height)
+void Renderer::copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height)
 {
     VkCommandBuffer command_buffer = begin_single_time_commands();
 
@@ -919,7 +921,7 @@ void lava_renderer::copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_
     end_single_time_commands(command_buffer);
 }
 
-void lava_renderer::create_image(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage * image, VkDeviceMemory * memory)
+void Renderer::create_image(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage * image, VkDeviceMemory * memory)
 {
     VkImageCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -953,7 +955,7 @@ void lava_renderer::create_image(uint32_t width, uint32_t height, VkFormat forma
     vkBindImageMemory(device, texture_image, texture_image_memory, 0);
 }
 
-VkCommandBuffer lava_renderer::begin_single_time_commands()
+VkCommandBuffer Renderer::begin_single_time_commands()
 {
     VkCommandBufferAllocateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -973,7 +975,7 @@ VkCommandBuffer lava_renderer::begin_single_time_commands()
     return command_buffer;
 }
 
-void lava_renderer::end_single_time_commands(VkCommandBuffer command_buffer)
+void Renderer::end_single_time_commands(VkCommandBuffer command_buffer)
 {
     vkEndCommandBuffer(command_buffer);
 
@@ -988,7 +990,7 @@ void lava_renderer::end_single_time_commands(VkCommandBuffer command_buffer)
     vkFreeCommandBuffers(device, command_pool, 1, &command_buffer);
 }
 
-void lava_renderer::draw_frame()
+void Renderer::draw_frame()
 {
     vkWaitForFences(device, 1, &inflight_fences[current_frame], VK_TRUE, UINT64_MAX);
 
@@ -1054,7 +1056,7 @@ void lava_renderer::draw_frame()
     current_frame = (current_frame + 1) % LAVA_MAX_FRAMES_IN_FLIGHT;
 }
 
-void lava_renderer::update_uniform_buffer(uint32_t current_image)
+void Renderer::update_uniform_buffer(uint32_t current_image)
 {
     static auto start = std::chrono::high_resolution_clock::now();
     auto current_time = std::chrono::high_resolution_clock::now();
@@ -1072,7 +1074,7 @@ void lava_renderer::update_uniform_buffer(uint32_t current_image)
     vkUnmapMemory(device, uniform_buffers_memory[current_image]);
 }
 
-lava_renderer::~lava_renderer()
+Renderer::~Renderer()
 {
     destroy_swapchain();
 
@@ -1095,7 +1097,7 @@ lava_renderer::~lava_renderer()
     }
     vkDestroyCommandPool(device, command_pool, nullptr);
     vkDestroyDevice(device, nullptr);
-    
+
 #if USE_VALIDATION
     lvk::destroy_debug_messenger(vulkan_instance, debug_messenger);
 #endif

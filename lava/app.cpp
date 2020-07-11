@@ -2,19 +2,20 @@
 #include <SDL/SDL.h>
 #include "renderer.h"
 
+using namespace lava;
 
-lava_app::lava_app(const char * window_title, int width, int height)
+App::App(const char * window_title, int width, int height)
     : window_width(width), window_height(height)
 {
     SDL_Init(SDL_INIT_VIDEO);
 
     sdl_window = SDL_CreateWindow(window_title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_VULKAN);
 
-    renderer = std::make_unique<lava_renderer>(this);
+    renderer = std::make_unique<Renderer>(this);
     running = true;
 }
 
-void lava_app::poll_events()
+void App::poll_events()
 {
     SDL_Event e;
     while (SDL_PollEvent(&e))
@@ -32,12 +33,12 @@ void lava_app::poll_events()
     }
 }
 
-void lava_app::draw_frame()
+void App::draw_frame()
 {
     renderer->draw_frame();
 }
 
-lava_app::~lava_app()
+App::~App()
 {
     renderer.reset();
     SDL_DestroyWindow(sdl_window);
