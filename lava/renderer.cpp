@@ -55,6 +55,13 @@ const std::vector<uint16_t> indices =
     0, 1, 2, 2, 3, 0  
 };
 
+struct UniformBufferObject
+{
+    glm::mat4 transform;
+    glm::mat4 view;
+    glm::mat4 proj;
+};
+
 static constexpr int LAVA_MAX_FRAMES_IN_FLIGHT = 2;
 
 static std::vector<char> load_file(const std::string filename)
@@ -217,6 +224,7 @@ lava_renderer::lava_renderer(lava_app * app)
     create_swapchain(swapchain_support);
     create_image_views();
     create_render_pass();
+    create_descriptor_set_layout();
     create_graphics_pipeline();
     create_framebuffers();
     create_command_pool();
@@ -359,6 +367,24 @@ void lava_renderer::create_render_pass()
         throw std::runtime_error("Failed to create render pass");
 }
 
+void lava_renderer::create_descriptor_set_layout()
+{
+    VkDescriptorSetLayoutBinding ubo_layout_binding{};
+    ubo_layout_binding.binding = 0;
+    ubo_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    ubo_layout_binding.descriptorCount = 1;
+    ubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    ubo_layout_binding.pImmutableSamplers = nullptr;
+
+    VkDescriptorSetLayoutCreateInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    info.bindingCount = 1;
+    info.pBindings = &ubo_layout_binding;
+
+    if (vkCreateDescriptorSetLayout(device, &info, nullptr, &descriptor_set_layout) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create descriptor set layout");
+}
+
 void lava_renderer::create_graphics_pipeline()
 {
     auto vert_shader_source = load_file("shaders/vert.spv");
@@ -456,6 +482,8 @@ void lava_renderer::create_graphics_pipeline()
 
     VkPipelineLayoutCreateInfo pipeline_layout_info = {};
     pipeline_layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipeline_layout_info.setLayoutCount = 1;
+    pipeline_layout_info.pSetLayouts = &descriptor_set_layout;
 
     if (vkCreatePipelineLayout(device, &pipeline_layout_info, nullptr, &pipeline_layout) != VK_SUCCESS)
         throw std::runtime_error("Failed to create pipeline layout");
@@ -800,6 +828,8 @@ void lava_renderer::draw_frame()
 lava_renderer::~lava_renderer()
 {
     destroy_swapchain();
+
+    vkDestroyDescriptorSetLayout(device, descriptor_set_layout, nullptr);
 
     vkDestroyBuffer(device, index_buffer, nullptr);
     vkFreeMemory(device, index_buffer_memory, nullptr);

@@ -39,6 +39,7 @@ private:
     std::vector<VkImageView> swapchain_image_views;
     std::vector<VkFramebuffer> swapchain_framebuffers;
     VkRenderPass render_pass;
+    VkDescriptorSetLayout descriptor_set_layout;
     VkPipelineLayout pipeline_layout;
     VkPipeline graphics_pipeline;
     VkCommandPool command_pool;
@@ -58,6 +59,7 @@ private:
     void create_swapchain(lvk::DeviceSurfaceDetails surface_details);
     void create_image_views();
     void create_render_pass();
+    void create_descriptor_set_layout();
     void create_graphics_pipeline();
     void create_framebuffers();
     void create_command_pool();
