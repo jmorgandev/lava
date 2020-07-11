@@ -235,6 +235,7 @@ Renderer::Renderer(App * app)
     create_framebuffers();
     create_command_pool();
     create_texture_image();
+    create_texture_image_view();
     create_vertex_buffer();
     create_index_buffer();
     create_uniform_buffers();
@@ -313,24 +314,7 @@ void Renderer::create_image_views()
     swapchain_image_views.resize(swapchain_images.size());
     for (int i = 0; i < swapchain_images.size(); i++)
     {
-        VkImageViewCreateInfo create_info = {};
-        create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        create_info.image = swapchain_images[i];
-        create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        create_info.format = swapchain_image_format;
-        create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-        create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-        create_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-        create_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-
-        create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        create_info.subresourceRange.baseMipLevel = 0;
-        create_info.subresourceRange.levelCount = 1;
-        create_info.subresourceRange.baseArrayLayer = 0;
-        create_info.subresourceRange.layerCount = 1;
-
-        if (vkCreateImageView(device, &create_info, nullptr, &swapchain_image_views[i]) != VK_SUCCESS)
-            throw std::runtime_error("Failed to create image view!");
+        swapchain_image_views[i] = create_image_view(swapchain_images[i], swapchain_image_format);
     }
 }
 
@@ -589,6 +573,11 @@ void Renderer::create_texture_image()
 
     vkDestroyBuffer(device, staging_buffer, nullptr);
     vkFreeMemory(device, staging_buffer_memory, nullptr);
+}
+
+void Renderer::create_texture_image_view()
+{
+    texture_image_view = create_image_view(texture_image, VK_FORMAT_R8G8B8A8_SRGB);
 }
 
 void Renderer::create_vertex_buffer()
@@ -990,6 +979,26 @@ void Renderer::end_single_time_commands(VkCommandBuffer command_buffer)
     vkFreeCommandBuffers(device, command_pool, 1, &command_buffer);
 }
 
+VkImageView Renderer::create_image_view(VkImage image, VkFormat format)
+{
+    VkImageViewCreateInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    info.image = image;
+    info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    info.format = format;
+    info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    info.subresourceRange.baseMipLevel = 0;
+    info.subresourceRange.levelCount = 1;
+    info.subresourceRange.baseArrayLayer = 0;
+    info.subresourceRange.layerCount = 1;
+
+    VkImageView image_view;
+    if (vkCreateImageView(device, &info, nullptr, &image_view) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create image view");
+
+    return image_view;
+}
+
 void Renderer::draw_frame()
 {
     vkWaitForFences(device, 1, &inflight_fences[current_frame], VK_TRUE, UINT64_MAX);
@@ -1078,6 +1087,7 @@ Renderer::~Renderer()
 {
     destroy_swapchain();
 
+    vkDestroyImageView(device, texture_image_view, nullptr);
     vkDestroyImage(device, texture_image, nullptr);
     vkFreeMemory(device, texture_image_memory, nullptr);
 
