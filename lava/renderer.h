@@ -58,6 +58,10 @@ namespace lava
         VkImageView texture_image_view;
         VkSampler texture_sampler;
 
+        VkImage depth_image;
+        VkDeviceMemory depth_image_memory;
+        VkImageView depth_image_view;
+
         std::vector<VkBuffer> uniform_buffers;
         std::vector<VkDeviceMemory> uniform_buffers_memory;
 
@@ -75,6 +79,7 @@ namespace lava
         void create_graphics_pipeline();
         void create_framebuffers();
         void create_command_pool();
+        void create_depth_resources();
         void create_texture_image();
         void create_texture_image_view();
         void create_texture_sampler();
@@ -95,7 +100,9 @@ namespace lava
         void end_single_time_commands(VkCommandBuffer command_buffer);
         void transition_image_layout(VkImage image, VkFormat format, VkImageLayout old_layout, VkImageLayout new_layout);
         void copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
-        VkImageView create_image_view(VkImage image, VkFormat format);
+        VkImageView create_image_view(VkImage image, VkFormat format, VkImageAspectFlags aspect_flags);
+        VkFormat find_supported_format(const std::vector<VkFormat> & candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+        VkFormat find_depth_format();
 
         void update_uniform_buffer(uint32_t current_image);
 

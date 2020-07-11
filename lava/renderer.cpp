@@ -9,6 +9,7 @@
 #include <fstream>
 
 #define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <array>
@@ -16,6 +17,11 @@
 #include <stb/stb_image.h>
 
 using namespace lava;
+
+static constexpr bool HAS_STENCIL_COMPONENT(VkFormat format)
+{
+    return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
+}
 
 struct Vertex
 {
@@ -247,6 +253,7 @@ Renderer::Renderer(App * app)
     create_graphics_pipeline();
     create_framebuffers();
     create_command_pool();
+    create_depth_resources();
     create_texture_image();
     create_texture_image_view();
     create_texture_sampler();
@@ -328,7 +335,7 @@ void Renderer::create_image_views()
     swapchain_image_views.resize(swapchain_images.size());
     for (int i = 0; i < swapchain_images.size(); i++)
     {
-        swapchain_image_views[i] = create_image_view(swapchain_images[i], swapchain_image_format);
+        swapchain_image_views[i] = create_image_view(swapchain_images[i], swapchain_image_format, VK_IMAGE_ASPECT_COLOR_BIT);
     }
 }
 
@@ -565,6 +572,15 @@ void Renderer::create_command_pool()
         throw std::runtime_error("Failed to create command pool");
 }
 
+void Renderer::create_depth_resources()
+{
+    VkFormat depth_format = find_depth_format();
+
+    create_image(swapchain_extent.width, swapchain_extent.height, depth_format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &depth_image, &depth_image_memory);
+    depth_image_view = create_image_view(depth_image, depth_format, VK_IMAGE_ASPECT_DEPTH_BIT);
+}
+
 void Renderer::create_texture_image()
 {
     int width, height, channels;
@@ -600,7 +616,7 @@ void Renderer::create_texture_image()
 
 void Renderer::create_texture_image_view()
 {
-    texture_image_view = create_image_view(texture_image, VK_FORMAT_R8G8B8A8_SRGB);
+    texture_image_view = create_image_view(texture_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
 void Renderer::create_texture_sampler()
@@ -1041,14 +1057,14 @@ void Renderer::end_single_time_commands(VkCommandBuffer command_buffer)
     vkFreeCommandBuffers(device, command_pool, 1, &command_buffer);
 }
 
-VkImageView Renderer::create_image_view(VkImage image, VkFormat format)
+VkImageView Renderer::create_image_view(VkImage image, VkFormat format, VkImageAspectFlags aspect_flags)
 {
     VkImageViewCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     info.image = image;
     info.viewType = VK_IMAGE_VIEW_TYPE_2D;
     info.format = format;
-    info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    info.subresourceRange.aspectMask = aspect_flags;
     info.subresourceRange.baseMipLevel = 0;
     info.subresourceRange.levelCount = 1;
     info.subresourceRange.baseArrayLayer = 0;
@@ -1059,6 +1075,28 @@ VkImageView Renderer::create_image_view(VkImage image, VkFormat format)
         throw std::runtime_error("Failed to create image view");
 
     return image_view;
+}
+
+VkFormat Renderer::find_supported_format(const std::vector<VkFormat> & candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
+{
+    for (VkFormat format : candidates) 
+    {
+        VkFormatProperties properties;
+        vkGetPhysicalDeviceFormatProperties(physical_device, format, &properties);
+
+        if (tiling == VK_IMAGE_TILING_LINEAR && (properties.linearTilingFeatures & features) == features)
+            return format;
+        else if (tiling == VK_IMAGE_TILING_OPTIMAL && (properties.optimalTilingFeatures & features) == features)
+            return format;
+    }
+
+    throw std::runtime_error("Failed to find supported format");
+}
+
+VkFormat Renderer::find_depth_format()
+{
+    return find_supported_format({VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
+                                 VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 }
 
 void Renderer::draw_frame()
