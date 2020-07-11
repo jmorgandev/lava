@@ -8,8 +8,11 @@
 
 #include <fstream>
 
+#define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <array>
+#include <chrono>
 
 struct Vertex
 {
@@ -593,6 +596,19 @@ void lava_renderer::create_index_buffer()
     vkFreeMemory(device, staging_buffer_memory, nullptr);
 }
 
+void lava_renderer::create_uniform_buffers()
+{
+    VkDeviceSize buffer_size = sizeof(UniformBufferObject);
+    uniform_buffers.resize(swapchain_images.size());
+    uniform_buffers_memory.resize(swapchain_images.size());
+
+    for (size_t i = 0; i < swapchain_images.size(); i++)
+    {
+        create_buffer(buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                      &uniform_buffers[i], &uniform_buffers_memory[i]);
+    }
+}
+
 void lava_renderer::create_command_buffers()
 {
     command_buffers.resize(swapchain_framebuffers.size());
@@ -679,6 +695,12 @@ void lava_renderer::destroy_swapchain()
     for (const auto image_view : swapchain_image_views)
         vkDestroyImageView(device, image_view, nullptr);
     vkDestroySwapchainKHR(device, swapchain, nullptr);
+
+    for (size_t i = 0; i < swapchain_images.size(); i++)
+    {
+        vkDestroyBuffer(device, uniform_buffers[i], nullptr);
+        vkFreeMemory(device, uniform_buffers_memory[i], nullptr);
+    }
 }
 
 void lava_renderer::recreate_swapchain()
@@ -696,6 +718,7 @@ void lava_renderer::recreate_swapchain()
     create_render_pass();
     create_graphics_pipeline();
     create_framebuffers();
+    create_uniform_buffers();
     create_command_buffers();
 }
 
@@ -780,6 +803,8 @@ void lava_renderer::draw_frame()
 
     inflight_images[image_index] = inflight_fences[current_frame];
 
+    update_uniform_buffer(image_index);
+
     VkSubmitInfo submit_info = {};
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
@@ -823,6 +848,24 @@ void lava_renderer::draw_frame()
     vkQueueWaitIdle(present_queue);
 
     current_frame = (current_frame + 1) % LAVA_MAX_FRAMES_IN_FLIGHT;
+}
+
+void lava_renderer::update_uniform_buffer(uint32_t current_image)
+{
+    static auto start = std::chrono::high_resolution_clock::now();
+    auto current_time = std::chrono::high_resolution_clock::now();
+    float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start).count();
+
+    UniformBufferObject ubo{};
+    ubo.transform = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+    ubo.proj = glm::perspective(glm::radians(45.0f), swapchain_extent.width / (float)swapchain_extent.height, 0.1f, 10.0f);
+    ubo.proj[1][1] *= -1;
+
+    void * data;
+    vkMapMemory(device, uniform_buffers_memory[current_image], 0, sizeof(ubo), 0, &data);
+    memcpy_s(data, sizeof(ubo), &ubo, sizeof(ubo));
+    vkUnmapMemory(device, uniform_buffers_memory[current_image]);
 }
 
 lava_renderer::~lava_renderer()

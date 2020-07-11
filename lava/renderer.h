@@ -49,6 +49,9 @@ private:
     VkBuffer index_buffer;
     VkDeviceMemory index_buffer_memory;
 
+    std::vector<VkBuffer> uniform_buffers;
+    std::vector<VkDeviceMemory> uniform_buffers_memory;
+
     std::vector<VkSemaphore> image_available_semaphores;
     std::vector<VkSemaphore> render_finished_semaphores;
     std::vector<VkFence> inflight_fences;
@@ -65,12 +68,14 @@ private:
     void create_command_pool();
     void create_vertex_buffer();
     void create_index_buffer();
+    void create_uniform_buffers();
     void create_command_buffers();
     void create_sync_objects();
     void destroy_swapchain();
     void recreate_swapchain();
     void create_buffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer * buffer, VkDeviceMemory * memory);
     void copy_buffer(VkBuffer src, VkBuffer dst, VkDeviceSize size);
+    void update_uniform_buffer(uint32_t current_image);
 
     SDL_Window * sdl_window;
     bool window_resized;
