@@ -56,6 +56,7 @@ namespace lava
         VkImage texture_image;
         VkDeviceMemory texture_image_memory;
         VkImageView texture_image_view;
+        VkSampler texture_sampler;
 
         std::vector<VkBuffer> uniform_buffers;
         std::vector<VkDeviceMemory> uniform_buffers_memory;
@@ -76,6 +77,7 @@ namespace lava
         void create_command_pool();
         void create_texture_image();
         void create_texture_image_view();
+        void create_texture_sampler();
         void create_vertex_buffer();
         void create_index_buffer();
         void create_uniform_buffers();

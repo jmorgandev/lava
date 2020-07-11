@@ -171,7 +171,7 @@ Renderer::Renderer(App * app)
         if (queue_family_info.graphics_family != LVK_NULL_QUEUE_FAMILY)
         {
             supported_device_extensions = lvk::filter_supported_device_extensions(device, { VK_KHR_SWAPCHAIN_EXTENSION_NAME });
-            if (!supported_device_extensions.empty())
+            if (!supported_device_extensions.empty() && features.samplerAnisotropy)
             {
                 lvk::DeviceSurfaceDetails surface_details = lvk::query_surface_details(device, window_surface);
                 if (!surface_details.formats.empty() && !surface_details.present_modes.empty())
@@ -201,6 +201,7 @@ Renderer::Renderer(App * app)
     }
 
     VkPhysicalDeviceFeatures device_features = {};
+    device_features.samplerAnisotropy = VK_TRUE;
 
     VkDeviceCreateInfo device_create_info = {};
     device_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -236,6 +237,7 @@ Renderer::Renderer(App * app)
     create_command_pool();
     create_texture_image();
     create_texture_image_view();
+    create_texture_sampler();
     create_vertex_buffer();
     create_index_buffer();
     create_uniform_buffers();
@@ -578,6 +580,30 @@ void Renderer::create_texture_image()
 void Renderer::create_texture_image_view()
 {
     texture_image_view = create_image_view(texture_image, VK_FORMAT_R8G8B8A8_SRGB);
+}
+
+void Renderer::create_texture_sampler()
+{
+    VkSamplerCreateInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    info.magFilter = VK_FILTER_LINEAR;
+    info.minFilter = VK_FILTER_LINEAR;
+    info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    info.anisotropyEnable = VK_TRUE;
+    info.maxAnisotropy = 16.0f;
+    info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    info.unnormalizedCoordinates = VK_FALSE;
+    info.compareEnable = VK_FALSE;
+    info.compareOp = VK_COMPARE_OP_ALWAYS;
+    info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    info.mipLodBias = 0.0f;
+    info.minLod = 0.0f;
+    info.maxLod = 0.0f;
+
+    if (vkCreateSampler(device, &info, nullptr, &texture_sampler) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create sampler");
 }
 
 void Renderer::create_vertex_buffer()
@@ -1087,6 +1113,7 @@ Renderer::~Renderer()
 {
     destroy_swapchain();
 
+    vkDestroySampler(device, texture_sampler, nullptr);
     vkDestroyImageView(device, texture_image_view, nullptr);
     vkDestroyImage(device, texture_image, nullptr);
     vkFreeMemory(device, texture_image_memory, nullptr);
