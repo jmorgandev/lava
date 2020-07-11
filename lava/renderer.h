@@ -48,6 +48,8 @@ private:
     VkDeviceMemory vertex_buffer_memory;
     VkBuffer index_buffer;
     VkDeviceMemory index_buffer_memory;
+    VkDescriptorPool descriptor_pool;
+    std::vector<VkDescriptorSet> descriptor_sets;
 
     std::vector<VkBuffer> uniform_buffers;
     std::vector<VkDeviceMemory> uniform_buffers_memory;
@@ -69,6 +71,8 @@ private:
     void create_vertex_buffer();
     void create_index_buffer();
     void create_uniform_buffers();
+    void create_descriptor_pool();
+    void create_descriptor_sets();
     void create_command_buffers();
     void create_sync_objects();
     void destroy_swapchain();

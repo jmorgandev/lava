@@ -233,6 +233,9 @@ lava_renderer::lava_renderer(lava_app * app)
     create_command_pool();
     create_vertex_buffer();
     create_index_buffer();
+    create_uniform_buffers();
+    create_descriptor_pool();
+    create_descriptor_sets();
     create_command_buffers();
     create_sync_objects();
 
@@ -451,7 +454,7 @@ void lava_renderer::create_graphics_pipeline()
     rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizer.lineWidth = 1.0f;
     rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-    rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizer.depthBiasEnable = VK_FALSE;
 
     VkPipelineMultisampleStateCreateInfo multisampling = {};
@@ -609,6 +612,55 @@ void lava_renderer::create_uniform_buffers()
     }
 }
 
+void lava_renderer::create_descriptor_pool()
+{
+    VkDescriptorPoolSize size{};
+    size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    size.descriptorCount = (uint32_t)swapchain_images.size();
+
+    VkDescriptorPoolCreateInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    info.poolSizeCount = 1;
+    info.pPoolSizes = &size;
+    info.maxSets = (uint32_t)swapchain_images.size();
+
+    if (vkCreateDescriptorPool(device, &info, nullptr, &descriptor_pool) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create descriptor pool");
+}
+
+void lava_renderer::create_descriptor_sets()
+{
+    std::vector<VkDescriptorSetLayout> layouts(swapchain_images.size(), descriptor_set_layout);
+    VkDescriptorSetAllocateInfo alloc_info{};
+    alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    alloc_info.descriptorPool = descriptor_pool;
+    alloc_info.descriptorSetCount = (uint32_t)swapchain_images.size();
+    alloc_info.pSetLayouts = layouts.data();
+
+    descriptor_sets.resize(swapchain_images.size());
+    if (vkAllocateDescriptorSets(device, &alloc_info, descriptor_sets.data()) != VK_SUCCESS)
+        throw std::runtime_error("Failed to allocate descriptor sets");
+
+    for (size_t i = 0; i < swapchain_images.size(); i++)
+    {
+        VkDescriptorBufferInfo info{};
+        info.buffer = uniform_buffers[i];
+        info.offset = 0;
+        info.range = sizeof(UniformBufferObject);
+
+        VkWriteDescriptorSet write{};
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstSet = descriptor_sets[i];
+        write.dstBinding = 0;
+        write.dstArrayElement = 0;
+        write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        write.descriptorCount = 1;
+        write.pBufferInfo = &info;
+
+        vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
+    }
+}
+
 void lava_renderer::create_command_buffers()
 {
     command_buffers.resize(swapchain_framebuffers.size());
@@ -652,7 +704,7 @@ void lava_renderer::create_command_buffers()
         vkCmdBindVertexBuffers(command_buffers[i], 0, 1, vertex_buffers, offsets);
         vkCmdBindIndexBuffer(command_buffers[i], index_buffer, 0, VK_INDEX_TYPE_UINT16);
 
-        //vkCmdDraw(command_buffers[i], (uint32_t)vertices.size(), 1, 0, 0);
+        vkCmdBindDescriptorSets(command_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1, &descriptor_sets[i], 0, nullptr);
         vkCmdDrawIndexed(command_buffers[i], (uint32_t)indices.size(), 1, 0, 0, 0);
         vkCmdEndRenderPass(command_buffers[i]);
 
@@ -701,6 +753,8 @@ void lava_renderer::destroy_swapchain()
         vkDestroyBuffer(device, uniform_buffers[i], nullptr);
         vkFreeMemory(device, uniform_buffers_memory[i], nullptr);
     }
+
+    vkDestroyDescriptorPool(device, descriptor_pool, nullptr);
 }
 
 void lava_renderer::recreate_swapchain()
@@ -719,6 +773,8 @@ void lava_renderer::recreate_swapchain()
     create_graphics_pipeline();
     create_framebuffers();
     create_uniform_buffers();
+    create_descriptor_pool();
+    create_descriptor_sets();
     create_command_buffers();
 }
 
@@ -858,9 +914,9 @@ void lava_renderer::update_uniform_buffer(uint32_t current_image)
 
     UniformBufferObject ubo{};
     ubo.transform = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f));
-    ubo.proj = glm::perspective(glm::radians(45.0f), swapchain_extent.width / (float)swapchain_extent.height, 0.1f, 10.0f);
-    ubo.proj[1][1] *= -1;
+    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.proj = glm::perspective(glm::radians(45.0f), (float)swapchain_extent.width / (float)swapchain_extent.height, 0.1f, 10.0f);
+    ubo.proj[1][1] *= -1.0f;
 
     void * data;
     vkMapMemory(device, uniform_buffers_memory[current_image], 0, sizeof(ubo), 0, &data);
