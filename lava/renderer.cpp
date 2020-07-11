@@ -19,7 +19,7 @@ using namespace lava;
 
 struct Vertex
 {
-    glm::vec2 position;
+    glm::vec3 position;
     glm::vec3 color;
     glm::vec2 texcoord;
 
@@ -38,7 +38,7 @@ struct Vertex
 
         descriptions[0].binding = 0;
         descriptions[0].location = 0;
-        descriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+        descriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
         descriptions[0].offset = offsetof(Vertex, position);
 
         descriptions[1].binding = 0;
@@ -57,10 +57,10 @@ struct Vertex
 
 const std::vector<Vertex> vertices =
 {
-    {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-    {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-    {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-    {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
+    {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+    {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+    {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+    {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
 };
 const std::vector<uint16_t> indices =
 {
