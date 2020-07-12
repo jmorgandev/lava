@@ -15,76 +15,47 @@
 #include <array>
 #include <chrono>
 #include <stb/stb_image.h>
+#include <tinyobj/tinyobjloader.h>
+
+std::string MODEL_PATH = "models/viking_room.obj";
+std::string TEXTURE_PATH = "textures/viking_room.png";
 
 using namespace lava;
+
+VkVertexInputBindingDescription Vertex::get_binding_description()
+{
+    VkVertexInputBindingDescription description = {};
+    description.binding = 0;
+    description.stride = sizeof(Vertex);
+    description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    return description;
+}
+std::array<VkVertexInputAttributeDescription, 3> Vertex::get_attribute_descriptions()
+{
+    std::array<VkVertexInputAttributeDescription, 3> descriptions = {};
+
+    descriptions[0].binding = 0;
+    descriptions[0].location = 0;
+    descriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+    descriptions[0].offset = offsetof(Vertex, position);
+
+    descriptions[1].binding = 0;
+    descriptions[1].location = 1;
+    descriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+    descriptions[1].offset = offsetof(Vertex, color);
+
+    descriptions[2].binding = 0;
+    descriptions[2].location = 2;
+    descriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
+    descriptions[2].offset = offsetof(Vertex, texcoord);
+
+    return descriptions;
+}
 
 static constexpr bool HAS_STENCIL_COMPONENT(VkFormat format)
 {
     return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
 }
-
-struct Vertex
-{
-    glm::vec3 position;
-    glm::vec3 color;
-    glm::vec2 texcoord;
-
-    static VkVertexInputBindingDescription get_binding_description()
-    {
-        VkVertexInputBindingDescription description = {};
-        description.binding = 0;
-        description.stride = sizeof(Vertex);
-        description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-        return description;
-    }
-
-    static std::array<VkVertexInputAttributeDescription, 3> get_attribute_descriptions()
-    {
-        std::array<VkVertexInputAttributeDescription, 3> descriptions = {};
-
-        descriptions[0].binding = 0;
-        descriptions[0].location = 0;
-        descriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-        descriptions[0].offset = offsetof(Vertex, position);
-
-        descriptions[1].binding = 0;
-        descriptions[1].location = 1;
-        descriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-        descriptions[1].offset = offsetof(Vertex, color);
-
-        descriptions[2].binding = 0;
-        descriptions[2].location = 2;
-        descriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-        descriptions[2].offset = offsetof(Vertex, texcoord);
-
-        return descriptions;
-    }
-};
-
-const std::vector<Vertex> vertices =
-{
-    {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-    {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-    {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-    {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
-
-    {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-    {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-    {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-    {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
-};
-const std::vector<uint16_t> indices =
-{
-    0, 1, 2, 2, 3, 0,
-    4, 5, 6, 6, 7, 4
-};
-
-struct UniformBufferObject
-{
-    glm::mat4 transform;
-    glm::mat4 view;
-    glm::mat4 proj;
-};
 
 static constexpr int LAVA_MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -257,6 +228,7 @@ Renderer::Renderer(App * app)
     create_texture_image();
     create_texture_image_view();
     create_texture_sampler();
+    load_model();
     create_vertex_buffer();
     create_index_buffer();
     create_uniform_buffers();
@@ -614,7 +586,7 @@ void Renderer::create_depth_resources()
 void Renderer::create_texture_image()
 {
     int width, height, channels;
-    stbi_uc * pixels = stbi_load("textures/bird_texture.jpg", &width, &height, &channels, STBI_rgb_alpha);
+    stbi_uc * pixels = stbi_load(TEXTURE_PATH.c_str(), &width, &height, &channels, STBI_rgb_alpha);
     VkDeviceSize image_size = width * height * STBI_rgb_alpha;
 
     if (!pixels)
@@ -671,6 +643,35 @@ void Renderer::create_texture_sampler()
 
     if (vkCreateSampler(device, &info, nullptr, &texture_sampler) != VK_SUCCESS)
         throw std::runtime_error("Failed to create sampler");
+}
+
+void Renderer::load_model()
+{
+    tinyobj::attrib_t attrib;
+    std::vector<tinyobj::shape_t> shapes;
+    std::vector<tinyobj::material_t> materials;
+    std::string warn, err;
+
+    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, MODEL_PATH.c_str()))
+        throw std::runtime_error(warn + err);
+
+    for (const auto & shape : shapes)
+    {
+        for (const auto & index : shape.mesh.indices)
+        {
+            Vertex v;
+
+            v.position = { attrib.vertices[3 * index.vertex_index + 0],
+                           attrib.vertices[3 * index.vertex_index + 1],
+                           attrib.vertices[3 * index.vertex_index + 2] };
+            v.texcoord = { attrib.texcoords[2 * index.texcoord_index + 0], 
+                           attrib.texcoords[2 * index.texcoord_index + 1] };
+            v.color = { 1.0f, 1.0f, 1.0f };
+
+            vertices.push_back(v);
+            indices.push_back((uint32_t)indices.size());
+        }
+    }
 }
 
 void Renderer::create_vertex_buffer()
@@ -838,7 +839,7 @@ void Renderer::create_command_buffers()
         VkBuffer vertex_buffers[] = { vertex_buffer };
         VkDeviceSize offsets[] = { 0 };
         vkCmdBindVertexBuffers(command_buffers[i], 0, 1, vertex_buffers, offsets);
-        vkCmdBindIndexBuffer(command_buffers[i], index_buffer, 0, VK_INDEX_TYPE_UINT16);
+        vkCmdBindIndexBuffer(command_buffers[i], index_buffer, 0, VK_INDEX_TYPE_UINT32);
 
         vkCmdBindDescriptorSets(command_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1, &descriptor_sets[i], 0, nullptr);
         vkCmdDrawIndexed(command_buffers[i], (uint32_t)indices.size(), 1, 0, 0, 0);

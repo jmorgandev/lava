@@ -3,6 +3,9 @@
 
 #include <vulkan/vulkan.h>
 #include <vector>
+#include <glm/vec3.hpp>
+#include <glm/vec2.hpp>
+#include <glm/mat4x4.hpp>
 #include "typedef.h"
 
 struct SDL_Window;
@@ -15,6 +18,23 @@ namespace lvk
 namespace lava
 {
     class App;
+
+    struct Vertex
+    {
+        glm::vec3 position;
+        glm::vec3 color;
+        glm::vec2 texcoord;
+
+        static VkVertexInputBindingDescription get_binding_description();
+        static std::array<VkVertexInputAttributeDescription, 3> get_attribute_descriptions();
+    };
+
+    struct UniformBufferObject
+    {
+        glm::mat4 transform;
+        glm::mat4 view;
+        glm::mat4 proj;
+    };
 
     class Renderer
     {
@@ -70,6 +90,9 @@ namespace lava
         std::vector<VkFence> inflight_fences;
         std::vector<VkFence> inflight_images;
 
+        std::vector<Vertex> vertices;
+        std::vector<uint32_t> indices;
+
         int current_frame;
 
         void create_swapchain(lvk::DeviceSurfaceDetails surface_details);
@@ -83,6 +106,7 @@ namespace lava
         void create_texture_image();
         void create_texture_image_view();
         void create_texture_sampler();
+        void load_model();
         void create_vertex_buffer();
         void create_index_buffer();
         void create_uniform_buffers();
