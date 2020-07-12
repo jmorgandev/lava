@@ -27,6 +27,8 @@ namespace lava
 
         static VkVertexInputBindingDescription get_binding_description();
         static std::array<VkVertexInputAttributeDescription, 3> get_attribute_descriptions();
+
+        bool operator==(const Vertex & other) const { return position == other.position && color == other.color && texcoord == other.texcoord; }
     };
 
     struct UniformBufferObject

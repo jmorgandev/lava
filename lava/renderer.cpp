@@ -7,10 +7,13 @@
 #include "lvk.h"
 
 #include <fstream>
+#include <unordered_map>
 
 #define GLM_FORCE_RADIANS
+#define GLM_EXPERIMENTAL
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
+#include <glm/gtx/hash.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <array>
 #include <chrono>
@@ -19,6 +22,17 @@
 
 std::string MODEL_PATH = "models/viking_room.obj";
 std::string TEXTURE_PATH = "textures/viking_room.png";
+
+namespace std
+{
+    template<> struct hash<lava::Vertex>
+    {
+        size_t operator()(lava::Vertex const & vertex) const
+        {
+            return ((hash<glm::vec3>()(vertex.position) ^ (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^ (hash<glm::vec2>()(vertex.texcoord) << 1);
+        }
+    };
+}
 
 using namespace lava;
 
@@ -655,6 +669,8 @@ void Renderer::load_model()
     if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, MODEL_PATH.c_str()))
         throw std::runtime_error(warn + err);
 
+    std::unordered_map<Vertex, uint32_t> unique_vertices;
+
     for (const auto & shape : shapes)
     {
         for (const auto & index : shape.mesh.indices)
@@ -668,8 +684,13 @@ void Renderer::load_model()
                            1.0f - attrib.texcoords[2 * index.texcoord_index + 1] };
             v.color = { 1.0f, 1.0f, 1.0f };
 
-            vertices.push_back(v);
-            indices.push_back((uint32_t)indices.size());
+            if (unique_vertices.count(v) == 0)
+            {
+                unique_vertices[v] = (uint32_t)vertices.size();
+                vertices.push_back(v);
+            }
+
+            indices.push_back(unique_vertices[v]);
         }
     }
 }
