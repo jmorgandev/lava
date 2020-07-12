@@ -248,12 +248,12 @@ Renderer::Renderer(App * app)
     lvk::DeviceSurfaceDetails swapchain_support = lvk::query_surface_details(physical_device, window_surface);
     create_swapchain(swapchain_support);
     create_image_views();
-    create_render_pass();
     create_descriptor_set_layout();
+    create_render_pass();
     create_graphics_pipeline();
-    create_framebuffers();
     create_command_pool();
     create_depth_resources();
+    create_framebuffers();
     create_texture_image();
     create_texture_image_view();
     create_texture_sampler();
@@ -504,6 +504,14 @@ void Renderer::create_graphics_pipeline()
         VK_COLOR_COMPONENT_A_BIT;
     color_blend_attachment.blendEnable = VK_FALSE;
 
+    VkPipelineDepthStencilStateCreateInfo depth_stencil{};
+    depth_stencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depth_stencil.depthTestEnable = VK_TRUE;
+    depth_stencil.depthWriteEnable = VK_TRUE;
+    depth_stencil.depthCompareOp = VK_COMPARE_OP_LESS;
+    depth_stencil.depthBoundsTestEnable = VK_FALSE;
+    depth_stencil.stencilTestEnable = VK_FALSE;
+
     VkPipelineColorBlendStateCreateInfo color_blending = {};
     color_blending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     color_blending.logicOpEnable = VK_FALSE;
@@ -539,7 +547,7 @@ void Renderer::create_graphics_pipeline()
     pipeline_info.pViewportState = &viewport_state;
     pipeline_info.pRasterizationState = &rasterizer;
     pipeline_info.pMultisampleState = &multisampling;
-    pipeline_info.pDepthStencilState = nullptr;
+    pipeline_info.pDepthStencilState = &depth_stencil;
     pipeline_info.pColorBlendState = &color_blending;
     pipeline_info.pDynamicState = nullptr;
 
@@ -561,13 +569,15 @@ void Renderer::create_framebuffers()
     swapchain_framebuffers.resize(swapchain_image_views.size());
     for (int i = 0; i < swapchain_image_views.size(); i++)
     {
-        VkImageView attachments[] = { swapchain_image_views[i] };
+        // we only need one depth image instead of the swapchain length because only a single subpass is
+        // running at the same time due to semaphores
+        std::array<VkImageView, 2> attachments = { swapchain_image_views[i], depth_image_view };
 
         VkFramebufferCreateInfo framebuffer_info = {};
         framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         framebuffer_info.renderPass = render_pass;
-        framebuffer_info.attachmentCount = 1;
-        framebuffer_info.pAttachments = attachments;
+        framebuffer_info.attachmentCount = (uint32_t)attachments.size();
+        framebuffer_info.pAttachments = attachments.data();
         framebuffer_info.width = swapchain_extent.width;
         framebuffer_info.height = swapchain_extent.height;
         framebuffer_info.layers = 1;
@@ -815,9 +825,11 @@ void Renderer::create_command_buffers()
         render_pass_info.renderArea.offset = { 0, 0 };
         render_pass_info.renderArea.extent = swapchain_extent;
 
-        VkClearValue clear_color = { 0.0f, 0.0f, 0.0f, 1.0f };
-        render_pass_info.clearValueCount = 1;
-        render_pass_info.pClearValues = &clear_color;
+        std::array<VkClearValue, 2> clear_values{};
+        clear_values[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
+        clear_values[1].depthStencil = { 1.0f, 0 };
+        render_pass_info.clearValueCount = (uint32_t)clear_values.size();
+        render_pass_info.pClearValues = clear_values.data();
 
         vkCmdBeginRenderPass(command_buffers[i], &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
 
@@ -862,6 +874,10 @@ void Renderer::create_sync_objects()
 
 void Renderer::destroy_swapchain()
 {
+    vkDestroyImageView(device, depth_image_view, nullptr);
+    vkDestroyImage(device, depth_image, nullptr);
+    vkFreeMemory(device, depth_image_memory, nullptr);
+
     for (const auto framebuffer : swapchain_framebuffers)
         vkDestroyFramebuffer(device, framebuffer, nullptr);
     vkFreeCommandBuffers(device, command_pool, (uint32_t)command_buffers.size(), command_buffers.data());
@@ -895,6 +911,7 @@ void Renderer::recreate_swapchain()
     create_image_views();
     create_render_pass();
     create_graphics_pipeline();
+    create_depth_resources();
     create_framebuffers();
     create_uniform_buffers();
     create_descriptor_pool();
@@ -1034,10 +1051,10 @@ void Renderer::create_image(uint32_t width, uint32_t height, VkFormat format, Vk
     info.extent.depth = 1;
     info.mipLevels = 1;
     info.arrayLayers = 1;
-    info.format = VK_FORMAT_R8G8B8A8_SRGB;
-    info.tiling = VK_IMAGE_TILING_OPTIMAL;
+    info.format = format;
+    info.tiling = tiling;
     info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    info.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    info.usage = usage;
     info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     info.samples = VK_SAMPLE_COUNT_1_BIT;
 
@@ -1045,17 +1062,17 @@ void Renderer::create_image(uint32_t width, uint32_t height, VkFormat format, Vk
         throw std::runtime_error("Failed to create image!");
 
     VkMemoryRequirements mrequirements;
-    vkGetImageMemoryRequirements(device, texture_image, &mrequirements);
+    vkGetImageMemoryRequirements(device, *image, &mrequirements);
 
     VkMemoryAllocateInfo alloc_info{};
     alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     alloc_info.allocationSize = mrequirements.size;
-    alloc_info.memoryTypeIndex = lvk::find_memory_type(mrequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, physical_device);
+    alloc_info.memoryTypeIndex = lvk::find_memory_type(mrequirements.memoryTypeBits, properties, physical_device);
 
-    if (vkAllocateMemory(device, &alloc_info, nullptr, &texture_image_memory) != VK_SUCCESS)
+    if (vkAllocateMemory(device, &alloc_info, nullptr, memory) != VK_SUCCESS)
         throw std::runtime_error("Failed to allocate image memory");
 
-    vkBindImageMemory(device, texture_image, texture_image_memory, 0);
+    vkBindImageMemory(device, *image, *memory, 0);
 }
 
 VkCommandBuffer Renderer::begin_single_time_commands()
