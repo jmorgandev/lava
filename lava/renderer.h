@@ -130,7 +130,7 @@ namespace lava
         VkImageView create_image_view(VkImage image, VkFormat format, VkImageAspectFlags aspect_flags, uint32_t mip_levels);
         VkFormat find_supported_format(const std::vector<VkFormat> & candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
         VkFormat find_depth_format();
-        void generate_mipmaps(VkImage image, int32_t width, int32_t height, uint32_t mip_levels);
+        void generate_mipmaps(VkImage image, VkFormat format, int32_t width, int32_t height, uint32_t mip_levels);
 
         void update_uniform_buffer(uint32_t current_image);
 

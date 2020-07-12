@@ -628,7 +628,7 @@ void Renderer::create_texture_image()
     transition_image_layout(texture_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mip_levels);
     copy_buffer_to_image(staging_buffer, texture_image, (uint32_t)width, (uint32_t)height);
     //transitioned to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL while generating mipmaps
-
+    generate_mipmaps(texture_image, VK_FORMAT_R8G8B8A8_SRGB, width, height, mip_levels);
 
 
     vkDestroyBuffer(device, staging_buffer, nullptr);
@@ -658,7 +658,7 @@ void Renderer::create_texture_sampler()
     info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     info.mipLodBias = 0.0f;
     info.minLod = 0.0f;
-    info.maxLod = 0.0f;
+    info.maxLod = (float)mip_levels;
 
     if (vkCreateSampler(device, &info, nullptr, &texture_sampler) != VK_SUCCESS)
         throw std::runtime_error("Failed to create sampler");
@@ -1179,8 +1179,14 @@ VkFormat Renderer::find_depth_format()
                                  VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 }
 
-void Renderer::generate_mipmaps(VkImage image, int32_t width, int32_t height, uint32_t mip_levels)
+void Renderer::generate_mipmaps(VkImage image, VkFormat format, int32_t width, int32_t height, uint32_t mip_levels)
 {
+    VkFormatProperties properties;
+    vkGetPhysicalDeviceFormatProperties(physical_device, format, &properties);
+
+    if (!(properties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT))
+        throw std::runtime_error("texture image format does not support linear blitting");
+
     VkCommandBuffer command_buffer = begin_single_time_commands();
 
     VkImageMemoryBarrier barrier{};
