@@ -665,7 +665,7 @@ void Renderer::load_model()
                            attrib.vertices[3 * index.vertex_index + 1],
                            attrib.vertices[3 * index.vertex_index + 2] };
             v.texcoord = { attrib.texcoords[2 * index.texcoord_index + 0], 
-                           attrib.texcoords[2 * index.texcoord_index + 1] };
+                           1.0f - attrib.texcoords[2 * index.texcoord_index + 1] };
             v.color = { 1.0f, 1.0f, 1.0f };
 
             vertices.push_back(v);
