@@ -75,6 +75,7 @@ namespace lava
         VkDeviceMemory index_buffer_memory;
         VkDescriptorPool descriptor_pool;
         std::vector<VkDescriptorSet> descriptor_sets;
+        uint32_t mip_levels;
         VkImage texture_image;
         VkDeviceMemory texture_image_memory;
         VkImageView texture_image_view;
@@ -121,14 +122,15 @@ namespace lava
 
         void create_buffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer * buffer, VkDeviceMemory * memory);
         void copy_buffer(VkBuffer src, VkBuffer dst, VkDeviceSize size);
-        void create_image(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage * image, VkDeviceMemory * memory);
+        void create_image(uint32_t width, uint32_t height, uint32_t mip_levels, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage * image, VkDeviceMemory * memory);
         VkCommandBuffer begin_single_time_commands();
         void end_single_time_commands(VkCommandBuffer command_buffer);
-        void transition_image_layout(VkImage image, VkFormat format, VkImageLayout old_layout, VkImageLayout new_layout);
+        void transition_image_layout(VkImage image, VkFormat format, VkImageLayout old_layout, VkImageLayout new_layout, uint32_t mip_levels);
         void copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
-        VkImageView create_image_view(VkImage image, VkFormat format, VkImageAspectFlags aspect_flags);
+        VkImageView create_image_view(VkImage image, VkFormat format, VkImageAspectFlags aspect_flags, uint32_t mip_levels);
         VkFormat find_supported_format(const std::vector<VkFormat> & candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
         VkFormat find_depth_format();
+        void generate_mipmaps(VkImage image, int32_t width, int32_t height, uint32_t mip_levels);
 
         void update_uniform_buffer(uint32_t current_image);
 
