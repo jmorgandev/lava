@@ -85,6 +85,8 @@ namespace lava
         VkDeviceMemory depth_image_memory;
         VkImageView depth_image_view;
 
+        VkSampleCountFlagBits msaa_samples;
+
         std::vector<VkBuffer> uniform_buffers;
         std::vector<VkDeviceMemory> uniform_buffers_memory;
 
@@ -96,6 +98,10 @@ namespace lava
         std::vector<Vertex> vertices;
         std::vector<uint32_t> indices;
 
+        VkImage color_image;
+        VkDeviceMemory color_image_memory;
+        VkImageView color_image_view;
+
         int current_frame;
 
         void create_swapchain(lvk::DeviceSurfaceDetails surface_details);
@@ -105,6 +111,7 @@ namespace lava
         void create_graphics_pipeline();
         void create_framebuffers();
         void create_command_pool();
+        void create_color_resources();
         void create_depth_resources();
         void create_texture_image();
         void create_texture_image_view();
@@ -122,7 +129,7 @@ namespace lava
 
         void create_buffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer * buffer, VkDeviceMemory * memory);
         void copy_buffer(VkBuffer src, VkBuffer dst, VkDeviceSize size);
-        void create_image(uint32_t width, uint32_t height, uint32_t mip_levels, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage * image, VkDeviceMemory * memory);
+        void create_image(uint32_t width, uint32_t height, uint32_t mip_levels, VkSampleCountFlagBits sample_count, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage * image, VkDeviceMemory * memory);
         VkCommandBuffer begin_single_time_commands();
         void end_single_time_commands(VkCommandBuffer command_buffer);
         void transition_image_layout(VkImage image, VkFormat format, VkImageLayout old_layout, VkImageLayout new_layout, uint32_t mip_levels);
@@ -131,6 +138,7 @@ namespace lava
         VkFormat find_supported_format(const std::vector<VkFormat> & candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
         VkFormat find_depth_format();
         void generate_mipmaps(VkImage image, VkFormat format, int32_t width, int32_t height, uint32_t mip_levels);
+        VkSampleCountFlagBits get_max_usable_sample_count();
 
         void update_uniform_buffer(uint32_t current_image);
 
