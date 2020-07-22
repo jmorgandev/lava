@@ -40,6 +40,12 @@ namespace lvk
     VkShaderModule create_shader_module(VkDevice device, const std::vector<char> & source);
 
     uint32_t find_memory_type(uint32_t type_filter, VkMemoryPropertyFlags properties, VkPhysicalDevice device);
+
+    ///////////// START OF REFACTOR
+
+    VKAPI_ATTR VkBool32 VKAPI_CALL debug_messenger_callback(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT type, const VkDebugUtilsMessengerCallbackDataEXT * callback_data, void * user_data);
+
+    VkInstance make_instance(uint32_t api_version, std::vector<const char *> extensions, std::vector<const char *> layers, VkDebugUtilsMessengerCreateInfoEXT * debug_info = nullptr, const char * app_name = "Lava Application");
 }
 
 #endif

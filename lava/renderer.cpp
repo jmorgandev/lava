@@ -88,7 +88,8 @@ static std::vector<char> load_file(const std::string filename)
     return buffer;
 }
 
-static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
+static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
+    VkDebugUtilsMessageSeverityFlagBitsEXT severity,
     VkDebugUtilsMessageTypeFlagsEXT type,
     const VkDebugUtilsMessengerCallbackDataEXT * callback_data,
     void * user_data)
@@ -99,15 +100,6 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverity
 
 Renderer::Renderer(App * app)
 {
-    // Register application information
-    VkApplicationInfo app_info = {};
-    app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    app_info.pApplicationName = app->title;
-    app_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-    app_info.pEngineName = "No Engine";
-    app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-    app_info.apiVersion = VK_API_VERSION_1_2;
-
     // Query extensions needed by SDL
     uint32_t sdl_required_extension_count;
     SDL_Vulkan_GetInstanceExtensions(app->sdl_window, &sdl_required_extension_count, nullptr);
@@ -123,25 +115,13 @@ Renderer::Renderer(App * app)
     auto extensions = lvk::filter_supported_extensions(requested_extensions);
     auto layers = lvk::filter_supported_layers(requested_layers);
 
-    // Create Vulkan instance
-    VkInstanceCreateInfo instance_create_info = {};
-    instance_create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-    instance_create_info.pApplicationInfo = &app_info;
-    instance_create_info.enabledExtensionCount = (uint32_t)extensions.size();
-    instance_create_info.ppEnabledExtensionNames = extensions.data();
-    instance_create_info.enabledLayerCount = (uint32_t)layers.size();
-    instance_create_info.ppEnabledLayerNames = layers.data();
-    instance_create_info.pNext = nullptr;
-
 #if USE_VALIDATION
     auto debug_create_info = lvk::make_default_debug_messenger_create_info();
     debug_create_info.pfnUserCallback = debug_callback;
-    instance_create_info.pNext = (VkDebugUtilsMessengerCreateInfoEXT *)&debug_create_info;
 #endif
-    if (vkCreateInstance(&instance_create_info, nullptr, &vulkan_instance) != VK_SUCCESS)
-    {
-        throw std::runtime_error("Failed to create instance!");
-    }
+
+    // VkInstance creation call
+    vulkan_instance = lvk::make_instance(VK_API_VERSION_1_2, extensions, layers, &debug_create_info);
 
 #if USE_VALIDATION
     debug_messenger = lvk::make_debug_messenger(vulkan_instance, &debug_create_info);
@@ -930,7 +910,7 @@ void Renderer::destroy_swapchain()
 {
     vkDestroyImageView(device, color_image_view, nullptr);
     vkDestroyImage(device, color_image, nullptr);
-    vkFreeMemory(device, depth_image_memory, nullptr);
+    vkFreeMemory(device, color_image_memory, nullptr);
 
     vkDestroyImageView(device, depth_image_view, nullptr);
     vkDestroyImage(device, depth_image, nullptr);
@@ -1360,6 +1340,7 @@ void Renderer::draw_frame()
         window_resized = false;
         recreate_swapchain();
     }
+    
     else if (result != VK_SUCCESS)
         throw std::runtime_error("failed to present swap chain image");
 

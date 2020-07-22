@@ -213,3 +213,41 @@ uint32_t lvk::find_memory_type(uint32_t type_filter, VkMemoryPropertyFlags prope
 
     throw std::runtime_error("failed to find suitable memory type!");
 }
+
+// START OF REFACTOR
+
+VKAPI_ATTR VkBool32 VKAPI_CALL lvk::debug_messenger_callback(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT type, const VkDebugUtilsMessengerCallbackDataEXT * callback_data, void * user_data)
+{
+    printf("%s\n", callback_data->pMessage);
+    if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
+        throw std::runtime_error(callback_data->pMessage);
+    return VK_FALSE;
+}
+
+VkInstance lvk::make_instance(uint32_t api_version, std::vector<const char *> extensions, std::vector<const char *> layers, VkDebugUtilsMessengerCreateInfoEXT * debug_info, const char * app_name)
+{
+    VkApplicationInfo app_info = {};
+    app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+    app_info.pApplicationName = app_name;
+    app_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+    app_info.pEngineName = "No Engine";
+    app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
+    app_info.apiVersion = api_version;
+
+    VkInstanceCreateInfo instance_info = {};
+    instance_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+    instance_info.pApplicationInfo = &app_info;
+    instance_info.enabledExtensionCount = (uint32_t)extensions.size();
+    instance_info.ppEnabledExtensionNames = extensions.data();
+    instance_info.enabledLayerCount = (uint32_t)layers.size();
+    instance_info.ppEnabledLayerNames = layers.data();
+    
+    if (debug_info)
+        instance_info.pNext = (VkDebugUtilsMessengerCreateInfoEXT *)debug_info;
+    else
+        instance_info.pNext = nullptr;
+    
+    VkInstance instance;
+    vkCreateInstance(&instance_info, nullptr, &instance);
+    return instance;
+}
