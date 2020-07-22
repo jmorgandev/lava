@@ -31,13 +31,13 @@
     <ClInclude Include="app.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="lvk.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
     <ClInclude Include="renderer.h">
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="typedef.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="lvk.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
