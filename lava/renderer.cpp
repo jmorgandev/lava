@@ -115,16 +115,13 @@ Renderer::Renderer(App * app)
     auto extensions = lvk::filter_supported_extensions(requested_extensions);
     auto layers = lvk::filter_supported_layers(requested_layers);
 
-#if USE_VALIDATION
-    auto debug_create_info = lvk::make_default_debug_messenger_create_info();
-    debug_create_info.pfnUserCallback = debug_callback;
-#endif
+    auto debug_create_info = lvk::default_debug_messenger_create_info();
 
     // VkInstance creation call
     vulkan_instance = lvk::make_instance(VK_API_VERSION_1_2, extensions, layers, &debug_create_info);
 
 #if USE_VALIDATION
-    debug_messenger = lvk::make_debug_messenger(vulkan_instance, &debug_create_info);
+    debug_messenger = lvk::make_debug_messenger(vulkan_instance);
 #endif
 
     if (!SDL_Vulkan_CreateSurface(app->sdl_window, vulkan_instance, &window_surface))

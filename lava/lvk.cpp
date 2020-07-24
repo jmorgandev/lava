@@ -66,22 +66,6 @@ std::vector<const char *> lvk::filter_supported_device_extensions(VkPhysicalDevi
     return filtered_extensions;
 }
 
-VkDebugUtilsMessengerEXT lvk::make_debug_messenger(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT * create_info, const VkAllocationCallbacks * allocator)
-{
-    VkDebugUtilsMessengerEXT debug_messenger;
-    auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
-    if (func != nullptr)
-    {
-        if (func(instance, create_info, allocator, &debug_messenger) != VK_SUCCESS)
-            throw std::runtime_error("Couldn't create default debug messenger!");
-    }
-    else
-    {
-        throw std::runtime_error("Couldn't locate proc addr of \"vkCreateDebugUtilsMessengerEXT\"!");
-    }
-    return debug_messenger;
-}
-
 VkDebugUtilsMessengerCreateInfoEXT lvk::make_default_debug_messenger_create_info()
 {
     VkDebugUtilsMessengerCreateInfoEXT create_info = {};
@@ -224,7 +208,22 @@ VKAPI_ATTR VkBool32 VKAPI_CALL lvk::debug_messenger_callback(VkDebugUtilsMessage
     return VK_FALSE;
 }
 
-VkInstance lvk::make_instance(uint32_t api_version, std::vector<const char *> extensions, std::vector<const char *> layers, VkDebugUtilsMessengerCreateInfoEXT * debug_info, const char * app_name)
+VkDebugUtilsMessengerCreateInfoEXT lvk::default_debug_messenger_create_info()
+{
+    VkDebugUtilsMessengerCreateInfoEXT info = {};
+    info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+    info.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | 
+                           VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+                           VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+    info.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | 
+                       VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                       VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+    info.pUserData = nullptr;
+    info.pfnUserCallback = lvk::debug_messenger_callback;
+    return info;
+}
+
+VkInstance lvk::make_instance(uint32_t api_version, std::vector<const char *> extensions, std::vector<const char *> layers, const void * pNext, const char * app_name)
 {
     VkApplicationInfo app_info = {};
     app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -241,13 +240,22 @@ VkInstance lvk::make_instance(uint32_t api_version, std::vector<const char *> ex
     instance_info.ppEnabledExtensionNames = extensions.data();
     instance_info.enabledLayerCount = (uint32_t)layers.size();
     instance_info.ppEnabledLayerNames = layers.data();
-    
-    if (debug_info)
-        instance_info.pNext = (VkDebugUtilsMessengerCreateInfoEXT *)debug_info;
-    else
-        instance_info.pNext = nullptr;
+    instance_info.pNext = pNext;
     
     VkInstance instance;
     vkCreateInstance(&instance_info, nullptr, &instance);
     return instance;
+}
+
+VkDebugUtilsMessengerEXT lvk::make_debug_messenger(VkInstance instance, VkDebugUtilsMessengerCreateInfoEXT * create_info)
+{
+    auto info = (create_info) ? *create_info : lvk::default_debug_messenger_create_info();
+    VkDebugUtilsMessengerEXT debug_messenger;
+    auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+    if (func)
+        if (func(instance, &info, nullptr, &debug_messenger) != VK_SUCCESS)
+            throw std::runtime_error("Couldn't create default debug messenger!");
+    else
+        throw std::runtime_error("Couldn't locate proc addr of \"vkCreateDebugUtilsMessengerEXT\"!");
+    return debug_messenger;
 }

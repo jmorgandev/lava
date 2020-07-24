@@ -12,7 +12,6 @@ constexpr int LVK_NULL_QUEUE_FAMILY = -1;
 namespace lvk
 {
     VkDebugUtilsMessengerCreateInfoEXT make_default_debug_messenger_create_info();
-    VkDebugUtilsMessengerEXT make_debug_messenger(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT * create_info, const VkAllocationCallbacks * allocator = nullptr);
     void destroy_debug_messenger(VkInstance instance, VkDebugUtilsMessengerEXT debug_messenger, const VkAllocationCallbacks * allocator = nullptr);
     std::vector<const char *> filter_supported_extensions(std::vector<const char *> requested_extensions);
     std::vector<const char *> filter_supported_layers(std::vector<const char *> requested_layers);
@@ -44,8 +43,10 @@ namespace lvk
     ///////////// START OF REFACTOR
 
     VKAPI_ATTR VkBool32 VKAPI_CALL debug_messenger_callback(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT type, const VkDebugUtilsMessengerCallbackDataEXT * callback_data, void * user_data);
+    VkDebugUtilsMessengerCreateInfoEXT default_debug_messenger_create_info();
 
-    VkInstance make_instance(uint32_t api_version, std::vector<const char *> extensions, std::vector<const char *> layers, VkDebugUtilsMessengerCreateInfoEXT * debug_info = nullptr, const char * app_name = "Lava Application");
+    VkInstance make_instance(uint32_t api_version, std::vector<const char *> extensions, std::vector<const char *> layers, const void * pNext = nullptr, const char * app_name = "Lava Application");
+    VkDebugUtilsMessengerEXT make_debug_messenger(VkInstance instance, VkDebugUtilsMessengerCreateInfoEXT * create_info = nullptr);
 }
 
 #endif
