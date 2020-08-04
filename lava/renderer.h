@@ -104,6 +104,8 @@ namespace lava
 
         int current_frame;
 
+        VkPhysicalDevice select_optimal_physical_device(const std::vector<VkPhysicalDevice> & physical_devices);
+
         void create_swapchain(lvk::DeviceSurfaceDetails surface_details);
         void create_image_views();
         void create_render_pass();

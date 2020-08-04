@@ -2,6 +2,7 @@
 
 #include <set>
 #include <SDL/SDL_video.h>
+#include <vector>
 
 #include "app.h"
 #include "lvk.h"
@@ -88,16 +89,6 @@ static std::vector<char> load_file(const std::string filename)
     return buffer;
 }
 
-static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
-    VkDebugUtilsMessageSeverityFlagBitsEXT severity,
-    VkDebugUtilsMessageTypeFlagsEXT type,
-    const VkDebugUtilsMessengerCallbackDataEXT * callback_data,
-    void * user_data)
-{
-    printf("%s\n", callback_data->pMessage);
-    return VK_FALSE;
-}
-
 Renderer::Renderer(App * app)
 {
     // Query extensions needed by SDL
@@ -118,10 +109,10 @@ Renderer::Renderer(App * app)
     auto debug_create_info = lvk::default_debug_messenger_create_info();
 
     // VkInstance creation call
-    vulkan_instance = lvk::make_instance(VK_API_VERSION_1_2, extensions, layers, &debug_create_info);
+    vulkan_instance = lvk::create_instance(VK_API_VERSION_1_2, extensions, layers, &debug_create_info);
 
 #if USE_VALIDATION
-    debug_messenger = lvk::make_debug_messenger(vulkan_instance);
+    debug_messenger = lvk::create_debug_messenger(vulkan_instance);
 #endif
 
     if (!SDL_Vulkan_CreateSurface(app->sdl_window, vulkan_instance, &window_surface))
@@ -136,39 +127,26 @@ Renderer::Renderer(App * app)
     std::vector<VkPhysicalDevice> physical_devices(device_count);
     vkEnumeratePhysicalDevices(vulkan_instance, &device_count, physical_devices.data());
 
-    physical_device = VK_NULL_HANDLE;
-    lvk::QueueFamilyInfo queue_family_info = {};
-    std::vector<const char *> supported_device_extensions = {};
-    // Select a GPU which has the following properties and features...
-    for (const auto & device : physical_devices)
-    {
-        VkPhysicalDeviceProperties properties;
-        VkPhysicalDeviceFeatures features;
-        vkGetPhysicalDeviceProperties(device, &properties);
-        vkGetPhysicalDeviceFeatures(device, &features);
-
-        queue_family_info = lvk::get_queue_family_info(device, window_surface);
-        if (queue_family_info.graphics_family != LVK_NULL_QUEUE_FAMILY)
-        {
-            supported_device_extensions = lvk::filter_supported_device_extensions(device, { VK_KHR_SWAPCHAIN_EXTENSION_NAME });
-            if (!supported_device_extensions.empty() && features.samplerAnisotropy)
-            {
-                lvk::DeviceSurfaceDetails surface_details = lvk::query_surface_details(device, window_surface);
-                if (!surface_details.formats.empty() && !surface_details.present_modes.empty())
-                {
-                    physical_device = device;
-                    msaa_samples = get_max_usable_sample_count();
-                    break;
-                }
-            }
-        }
-    }
-
+    physical_device = select_optimal_physical_device(physical_devices);
+    
     if (physical_device == VK_NULL_HANDLE)
         throw std::runtime_error("Couldn't find a GPU with appropriate features!");
 
+    lvk::PhysicalDeviceDetails device_details = lvk::get_physical_device_details(physical_device, window_surface);
+
+    msaa_samples = get_max_usable_sample_count();
+
+    lvk::QueueFamilyInfo q = lvk::get_queue_family_info(physical_device, window_surface);
+
+    // Create graphics and present queues
     std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
-    std::set<int> unique_families = { queue_family_info.graphics_family, queue_family_info.present_family };
+    for (size_t i = 0; i < device_details.queue_families.size(); i++)
+    {
+        const auto & family = device_details.queue_families[i];
+        
+    }
+
+    std::set<int> unique_families = { 0, 1 };//{ queue_family_info.graphics_family, queue_family_info.present_family };
     float priority = 1.0f;
 
     for (int family : unique_families)
@@ -184,13 +162,15 @@ Renderer::Renderer(App * app)
     VkPhysicalDeviceFeatures device_features = {};
     device_features.samplerAnisotropy = VK_TRUE;
 
+    const char * exts = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
+
     VkDeviceCreateInfo device_create_info = {};
     device_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     device_create_info.queueCreateInfoCount = (uint32_t)queue_create_infos.size();
     device_create_info.pQueueCreateInfos = queue_create_infos.data();
     device_create_info.pEnabledFeatures = &device_features;
-    device_create_info.enabledExtensionCount = (uint32_t)supported_device_extensions.size();
-    device_create_info.ppEnabledExtensionNames = supported_device_extensions.data();
+    device_create_info.enabledExtensionCount = 1;// (uint32_t)supported_device_extensions.size();
+    device_create_info.ppEnabledExtensionNames = &exts;//supported_device_extensions.data();
 
 #if DEVICE_VALIDATION_LAYER_COMPATIBILITY
     device_create_info.enabledLayerCount = (uint32_t)layers.size();
@@ -203,8 +183,8 @@ Renderer::Renderer(App * app)
     if (vkCreateDevice(physical_device, &device_create_info, nullptr, &device) != VK_SUCCESS)
         throw std::runtime_error("Failed to create logical device!");
 
-    vkGetDeviceQueue(device, queue_family_info.graphics_family, 0, &graphics_queue);
-    vkGetDeviceQueue(device, queue_family_info.present_family, 0, &present_queue);
+    vkGetDeviceQueue(device, 0, 0, &graphics_queue);
+    vkGetDeviceQueue(device, 1, 0, &present_queue);
 
     sdl_window = app->sdl_window;
 
@@ -232,6 +212,27 @@ Renderer::Renderer(App * app)
 
     current_frame = 0;
     window_resized = false;
+}
+
+VkPhysicalDevice Renderer::select_optimal_physical_device(const std::vector<VkPhysicalDevice> & physical_devices)
+{
+    //
+    // Select a device that has:
+    // - A graphics family queue
+    // - A swapchain extension
+    // - Any surface format
+    // - Any present mode
+    //
+    for (const auto dev : physical_devices)
+    {
+        lvk::PhysicalDeviceDetails details = lvk::get_physical_device_details(dev, window_surface);
+
+        if (details.has_graphics_queue && details.has_swapchain_extension &&  !details.surface_formats.empty() && !details.present_modes.empty())
+        {
+            return dev;
+        }
+    }
+    return VK_NULL_HANDLE;
 }
 
 void Renderer::create_swapchain(lvk::DeviceSurfaceDetails surface_details)

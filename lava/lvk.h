@@ -11,7 +11,6 @@ constexpr int LVK_NULL_QUEUE_FAMILY = -1;
 
 namespace lvk
 {
-    VkDebugUtilsMessengerCreateInfoEXT make_default_debug_messenger_create_info();
     void destroy_debug_messenger(VkInstance instance, VkDebugUtilsMessengerEXT debug_messenger, const VkAllocationCallbacks * allocator = nullptr);
     std::vector<const char *> filter_supported_extensions(std::vector<const char *> requested_extensions);
     std::vector<const char *> filter_supported_layers(std::vector<const char *> requested_layers);
@@ -45,8 +44,27 @@ namespace lvk
     VKAPI_ATTR VkBool32 VKAPI_CALL debug_messenger_callback(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT type, const VkDebugUtilsMessengerCallbackDataEXT * callback_data, void * user_data);
     VkDebugUtilsMessengerCreateInfoEXT default_debug_messenger_create_info();
 
-    VkInstance make_instance(uint32_t api_version, std::vector<const char *> extensions, std::vector<const char *> layers, const void * pNext = nullptr, const char * app_name = "Lava Application");
-    VkDebugUtilsMessengerEXT make_debug_messenger(VkInstance instance, VkDebugUtilsMessengerCreateInfoEXT * create_info = nullptr);
+    VkInstance create_instance(uint32_t api_version, std::vector<const char *> extensions, std::vector<const char *> layers, const void * pNext = nullptr, const char * app_name = "Lava Application");
+    VkDebugUtilsMessengerEXT create_debug_messenger(VkInstance instance, VkDebugUtilsMessengerCreateInfoEXT * create_info = nullptr);
+
+    struct PhysicalDeviceDetails
+    {
+        VkPhysicalDeviceProperties device_properties;
+        VkPhysicalDeviceMemoryProperties memory_properties;
+        std::vector<VkQueueFamilyProperties> queue_families;
+        std::vector<VkExtensionProperties> extensions;
+        VkSurfaceCapabilitiesKHR surface_capabilities;
+        std::vector<VkSurfaceFormatKHR> surface_formats;
+        std::vector<VkPresentModeKHR> present_modes;
+
+        bool has_graphics_queue;
+        bool has_transfer_queue;
+        bool has_swapchain_extension;
+
+        VkDeviceSize local_memory_size;
+        VkDeviceSize total_memory_size;
+    };
+    PhysicalDeviceDetails get_physical_device_details(VkPhysicalDevice device, VkSurfaceKHR surface = VK_NULL_HANDLE);
 }
 
 #endif

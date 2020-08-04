@@ -1,19 +1,9 @@
 #include "lvk.h"
+#include <vector>
+#include <functional>
 #include <algorithm>
 #include <iterator>
 #include <cstdint>
-
-static VkApplicationInfo make_application_info(const char * app_title, uint32_t app_version, uint32_t api_version)
-{
-    VkApplicationInfo app_info = {};
-    app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    app_info.pApplicationName = app_title;
-    app_info.applicationVersion = app_version;
-    app_info.pEngineName = "No Engine";
-    app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-    app_info.apiVersion = api_version;
-    return app_info;
-}
 
 std::vector<const char *> lvk::filter_supported_extensions(std::vector<const char *> requested_extensions)
 {
@@ -64,18 +54,6 @@ std::vector<const char *> lvk::filter_supported_device_extensions(VkPhysicalDevi
         return false;
     });
     return filtered_extensions;
-}
-
-VkDebugUtilsMessengerCreateInfoEXT lvk::make_default_debug_messenger_create_info()
-{
-    VkDebugUtilsMessengerCreateInfoEXT create_info = {};
-    create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-    create_info.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-        VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-    create_info.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-        VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-    create_info.pUserData = nullptr;
-    return create_info;
 }
 
 void lvk::destroy_debug_messenger(VkInstance instance, VkDebugUtilsMessengerEXT debug_messenger, const VkAllocationCallbacks * allocator)
@@ -223,7 +201,7 @@ VkDebugUtilsMessengerCreateInfoEXT lvk::default_debug_messenger_create_info()
     return info;
 }
 
-VkInstance lvk::make_instance(uint32_t api_version, std::vector<const char *> extensions, std::vector<const char *> layers, const void * pNext, const char * app_name)
+VkInstance lvk::create_instance(uint32_t api_version, std::vector<const char *> extensions, std::vector<const char *> layers, const void * pNext, const char * app_name)
 {
     VkApplicationInfo app_info = {};
     app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -247,15 +225,75 @@ VkInstance lvk::make_instance(uint32_t api_version, std::vector<const char *> ex
     return instance;
 }
 
-VkDebugUtilsMessengerEXT lvk::make_debug_messenger(VkInstance instance, VkDebugUtilsMessengerCreateInfoEXT * create_info)
+VkDebugUtilsMessengerEXT lvk::create_debug_messenger(VkInstance instance, VkDebugUtilsMessengerCreateInfoEXT * create_info)
 {
     auto info = (create_info) ? *create_info : lvk::default_debug_messenger_create_info();
-    VkDebugUtilsMessengerEXT debug_messenger;
+    VkDebugUtilsMessengerEXT debug_messenger = VK_NULL_HANDLE;
     auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
     if (func)
+    {
         if (func(instance, &info, nullptr, &debug_messenger) != VK_SUCCESS)
             throw std::runtime_error("Couldn't create default debug messenger!");
-    else
-        throw std::runtime_error("Couldn't locate proc addr of \"vkCreateDebugUtilsMessengerEXT\"!");
+    }
+    else throw std::runtime_error("Couldn't locate proc addr of \"vkCreateDebugUtilsMessengerEXT\"!");
     return debug_messenger;
+}
+
+lvk::PhysicalDeviceDetails lvk::get_physical_device_details(VkPhysicalDevice device, VkSurfaceKHR surface)
+{
+    lvk::PhysicalDeviceDetails details = {};
+    uint32_t length = 0;
+
+    vkGetPhysicalDeviceProperties(device, &details.device_properties);
+    
+    vkGetPhysicalDeviceMemoryProperties(device, &details.memory_properties);
+    for (uint32_t i = 0; i < details.memory_properties.memoryTypeCount; i++)
+    {
+        VkMemoryType type = details.memory_properties.memoryTypes[i];
+        if (type.propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+        {
+            details.local_memory_size = details.memory_properties.memoryHeaps[type.heapIndex].size;
+        }
+   }
+    for (uint32_t i = 0; i < details.memory_properties.memoryHeapCount; i++)
+        details.total_memory_size += details.memory_properties.memoryHeaps[i].size;
+
+    auto queue_family_flag_search = [](auto & family, VkQueueFlags flag) { return family.queueFlags & flag };
+
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &length, nullptr);
+    details.queue_families.resize(length);
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &length, details.queue_families.data());
+
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &length, nullptr);
+    details.extensions.resize(length);
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &length, details.extensions.data());
+    details.has_swapchain_extension = std::any_of(details.extensions.begin(), details.extensions.end(),
+        [](auto & extension) {return strcmp(extension.extensionName, VK_KHR_SWAPCHAIN_EXTENSION_NAME) == 0; });
+
+    if (surface != VK_NULL_HANDLE)
+    {
+        vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &length, nullptr);
+        details.surface_formats.resize(length);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &length, details.surface_formats.data());
+
+        vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &length, nullptr);
+        details.present_modes.resize(length);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &length, details.present_modes.data());
+    }
+
+    // Provide extra information
+    using std::bind;
+    using std::any_of;
+    using std::begin;
+    using std::end;
+    using namespace std::placeholders;
+
+    auto queue_family_flag_pred = [](const auto & family, VkQueueFlags flag) {return family.queueFlags & flag; };
+    auto extension_name_pred = [](const auto & extension, const char * ext_name) {return strcmp(extension.extensionName, ext_name) == 0; };
+
+    details.has_graphics_queue = any_of(begin(details.queue_families), end(details.queue_families), bind(queue_family_flag_pred, _1, VK_QUEUE_GRAPHICS_BIT));
+    details.has_transfer_queue = any_of(begin(details.queue_families), end(details.queue_families), bind(queue_family_flag_pred, _1, VK_QUEUE_TRANSFER_BIT));
+    details.has_swapchain_extension = any_of(begin(details.extensions), end(details.extensions), bind(extension_name_pred, _1, VK_KHR_SWAPCHAIN_EXTENSION_NAME));
+
+    return details;
 }
