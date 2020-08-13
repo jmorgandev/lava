@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <iterator>
 #include <cstdint>
+#include <bitset>
 
 std::vector<const char *> lvk::filter_supported_extensions(std::vector<const char *> requested_extensions)
 {
@@ -296,4 +297,48 @@ lvk::PhysicalDeviceDetails lvk::get_physical_device_details(VkPhysicalDevice dev
     details.has_swapchain_extension = any_of(begin(details.extensions), end(details.extensions), bind(extension_name_pred, _1, VK_KHR_SWAPCHAIN_EXTENSION_NAME));
 
     return details;
+}
+
+std::vector<QueueDetails> lvk::resolve_queue_requests(const PhysicalDeviceDetails & device_details, const std::vector<QueueRequest> & queue_requests)
+{
+    std::vector<QueueDetails> queue_details;
+    std::vector<uint32_t> remaining_family_queues(device_details.queue_families.size());
+    for (size_t i = 0; i < remaining_family_queues.size(); i++)
+        remaining_family_queues[i] = device_details.queue_families[i].queueCount;
+
+    auto bitcount_of = [](uint32_t i) -> size_t {return std::bitset<32>(i).count(); };
+
+    for (const auto & request : queue_requests)
+    {
+        uint32_t best_family_idx = 0;
+        size_t best_family_bitcount = bitcount_of(device_details.queue_families[0].queueFlags);
+
+        for (uint32_t family_idx = 0; family_idx < device_details.queue_families.size(); family_idx++)
+        {
+            const auto & family = device_details.queue_families[family_idx];
+            uint32_t & queues_remaining = remaining_family_queues[family_idx];
+            size_t bitcount = bitcount_of(family.queueFlags);
+
+            if ((request.first & family.queueFlags) == request.first && queues_remaining >= request.second && bitcount < best_family_bitcount)
+            {
+                best_family_idx = family_idx;
+                best_family_bitcount = bitcount;
+            }
+        }
+
+        const auto & family = device_details.queue_families[best_family_idx];
+        uint32_t & queues_remaining = remaining_family_queues[best_family_idx];
+        for (size_t queue_idx = 0; queue_idx < request.second; queue_idx++)
+        {
+            queue_details.push_back({ family.queueFlags, (uint32_t)best_family_idx, family.queueCount - queues_remaining + (uint32_t)queue_idx });
+        }
+        remaining_family_queues[best_family_idx] -= request.second;
+    }
+    return queue_details;
+}
+
+VkDevice lvk::create_device(VkPhysicalDevice physical_device, uint32_t graphics_queues, uint32_t compute_queues, VkPhysicalDeviceFeatures device_features, std::vector<const char *> extensions)
+{
+    // Create
+    return VkDevice{};
 }

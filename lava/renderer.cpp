@@ -136,9 +136,13 @@ Renderer::Renderer(App * app)
 
     msaa_samples = get_max_usable_sample_count();
 
-    lvk::QueueFamilyInfo q = lvk::get_queue_family_info(physical_device, window_surface);
+    // Request graphics and present queues
+    std::vector<lvk::QueueRequest> queue_requests = {
+        { VK_QUEUE_GRAPHICS_BIT, 1 }
+    };
 
-    // Create graphics and present queues
+    std::vector<lvk::QueueDetails> queue_details = lvk::resolve_queue_requests(device_details, queue_requests);
+
     std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
     for (size_t i = 0; i < device_details.queue_families.size(); i++)
     {

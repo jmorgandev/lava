@@ -65,6 +65,17 @@ namespace lvk
         VkDeviceSize total_memory_size;
     };
     PhysicalDeviceDetails get_physical_device_details(VkPhysicalDevice device, VkSurfaceKHR surface = VK_NULL_HANDLE);
+    
+    using QueueRequest = std::pair<VkQueueFlags, uint32_t>;
+    struct QueueDetails
+    {
+        VkQueueFlags queue_type;
+        uint32_t family_index;
+        uint32_t queue_index;
+    };
+    std::vector<QueueDetails> resolve_queue_requests(const PhysicalDeviceDetails & device_details, const std::vector<QueueRequest> & queue_requests);
+
+    VkDevice create_device(VkPhysicalDevice physical_device, uint32_t graphics_queues, uint32_t compute_queues, VkPhysicalDeviceFeatures device_features, std::vector<const char *> extensions);
 }
 
 #endif

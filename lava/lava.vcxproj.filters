@@ -34,10 +34,10 @@
     <ClInclude Include="renderer.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="typedef.h">
+    <ClInclude Include="lvk.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="lvk.h">
+    <ClInclude Include="typedefs.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
