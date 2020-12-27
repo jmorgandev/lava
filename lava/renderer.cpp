@@ -20,6 +20,7 @@
 #include <chrono>
 #include <stb/stb_image.h>
 #include <tinyobj/tinyobjloader.h>
+#include <bitset>
 
 std::string MODEL_PATH = "models/viking_room.obj";
 std::string TEXTURE_PATH = "textures/viking_room.png";
@@ -136,30 +137,38 @@ Renderer::Renderer(App * app)
 
     msaa_samples = get_max_usable_sample_count();
 
-    // Request graphics and present queues
-    std::vector<lvk::QueueRequest> queue_requests = {
-        { VK_QUEUE_GRAPHICS_BIT, 1 }
-    };
-
-    std::vector<lvk::QueueDetails> queue_details = lvk::resolve_queue_requests(device_details, queue_requests);
-
-    std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
-    for (size_t i = 0; i < device_details.queue_families.size(); i++)
+    // Find main graphics queue with present capabilities
+    uint32_t graphics_queue_family_index = UINT32_MAX;
+    uint32_t present_queue_family_index = UINT32_MAX;
+    for (uint32_t i = 0; i < device_details.queue_families.size(); i++)
     {
         const auto & family = device_details.queue_families[i];
-        
+     
+        VkQueueFlags flags = device_details.queue_families[i].queueFlags;
+
+        if (flags & VK_QUEUE_GRAPHICS_BIT)
+        {
+            graphics_queue_family_index = i;
+        }
+
+        VkBool32 present_support;
+        vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, i, window_surface, &present_support);
+        if (present_support)
+        {
+            present_queue_family_index = i;
+        }
     }
 
-    std::set<int> unique_families = { 0, 1 };//{ queue_family_info.graphics_family, queue_family_info.present_family };
-    float priority = 1.0f;
-
-    for (int family : unique_families)
+    std::set<uint32_t> unique_indices = { graphics_queue_family_index, present_queue_family_index };
+    std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
+    for (uint32_t index : unique_indices)
     {
         VkDeviceQueueCreateInfo create_info = {};
         create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-        create_info.queueFamilyIndex = family;
+        create_info.queueFamilyIndex = index;
         create_info.queueCount = 1;
-        create_info.pQueuePriorities = &priority;
+        float default_priority = 1.0f;
+        create_info.pQueuePriorities = &default_priority;
         queue_create_infos.push_back(create_info);
     }
 
@@ -187,8 +196,8 @@ Renderer::Renderer(App * app)
     if (vkCreateDevice(physical_device, &device_create_info, nullptr, &device) != VK_SUCCESS)
         throw std::runtime_error("Failed to create logical device!");
 
-    vkGetDeviceQueue(device, 0, 0, &graphics_queue);
-    vkGetDeviceQueue(device, 1, 0, &present_queue);
+    vkGetDeviceQueue(device, graphics_queue_family_index, 0, &graphics_queue);
+    vkGetDeviceQueue(device, present_queue_family_index, 0, &present_queue);
 
     sdl_window = app->sdl_window;
 
@@ -231,7 +240,8 @@ VkPhysicalDevice Renderer::select_optimal_physical_device(const std::vector<VkPh
     {
         lvk::PhysicalDeviceDetails details = lvk::get_physical_device_details(dev, window_surface);
 
-        if (details.has_graphics_queue && details.has_swapchain_extension &&  !details.surface_formats.empty() && !details.present_modes.empty())
+        if (details.supports_graphics && details.supports_present && details.supports_swapchain && 
+            !details.surface_formats.empty() && !details.present_modes.empty())
         {
             return dev;
         }
@@ -1362,6 +1372,7 @@ void Renderer::update_uniform_buffer(uint32_t current_image)
     ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.proj = glm::perspective(glm::radians(45.0f), (float)swapchain_extent.width / (float)swapchain_extent.height, 0.1f, 10.0f);
     ubo.proj[1][1] *= -1.0f;
+    ubo.hue_shift = time * glm::radians(10.0f);
 
     void * data;
     vkMapMemory(device, uniform_buffers_memory[current_image], 0, sizeof(ubo), 0, &data);

@@ -4,10 +4,13 @@
 #include <vulkan/vulkan.h>
 #include <SDL/SDL_vulkan.h>
 #include <vector>
+#include <functional>
 
 constexpr int LVK_NULL_QUEUE_FAMILY = -1;
 #define USE_VALIDATION _DEBUG || true
 #define DEVICE_VALIDATION_LAYER_COMPATIBILITY false
+
+#define LVK_NOT_SUPPORTED -1u
 
 namespace lvk
 {
@@ -57,25 +60,17 @@ namespace lvk
         std::vector<VkSurfaceFormatKHR> surface_formats;
         std::vector<VkPresentModeKHR> present_modes;
 
-        bool has_graphics_queue;
-        bool has_transfer_queue;
-        bool has_swapchain_extension;
+        bool supports_graphics;
+        bool supports_compute;
+        bool supports_present;
+        bool supports_swapchain;
 
         VkDeviceSize local_memory_size;
         VkDeviceSize total_memory_size;
     };
     PhysicalDeviceDetails get_physical_device_details(VkPhysicalDevice device, VkSurfaceKHR surface = VK_NULL_HANDLE);
-    
-    using QueueRequest = std::pair<VkQueueFlags, uint32_t>;
-    struct QueueDetails
-    {
-        VkQueueFlags queue_type;
-        uint32_t family_index;
-        uint32_t queue_index;
-    };
-    std::vector<QueueDetails> resolve_queue_requests(const PhysicalDeviceDetails & device_details, const std::vector<QueueRequest> & queue_requests);
 
-    VkDevice create_device(VkPhysicalDevice physical_device, uint32_t graphics_queues, uint32_t compute_queues, VkPhysicalDeviceFeatures device_features, std::vector<const char *> extensions);
+    VkDeviceQueueCreateInfo make_queue_info(uint32_t family_index, uint32_t count, std::vector<float> priorities);
 }
 
 #endif

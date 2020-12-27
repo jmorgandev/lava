@@ -268,8 +268,11 @@ lvk::PhysicalDeviceDetails lvk::get_physical_device_details(VkPhysicalDevice dev
     vkEnumerateDeviceExtensionProperties(device, nullptr, &length, nullptr);
     details.extensions.resize(length);
     vkEnumerateDeviceExtensionProperties(device, nullptr, &length, details.extensions.data());
-    details.has_swapchain_extension = std::any_of(details.extensions.begin(), details.extensions.end(),
-        [](auto & extension) {return strcmp(extension.extensionName, VK_KHR_SWAPCHAIN_EXTENSION_NAME) == 0; });
+    for (const auto & extension : details.extensions)
+    {
+        if (strcmp(extension.extensionName, VK_KHR_SWAPCHAIN_EXTENSION_NAME) == 0)
+            details.supports_swapchain = true;
+    }
 
     if (surface != VK_NULL_HANDLE)
     {
@@ -283,62 +286,17 @@ lvk::PhysicalDeviceDetails lvk::get_physical_device_details(VkPhysicalDevice dev
     }
 
     // Provide extra information
-    using std::bind;
-    using std::any_of;
-    using std::begin;
-    using std::end;
-    using namespace std::placeholders;
-
-    auto queue_family_flag_pred = [](const auto & family, VkQueueFlags flag) {return family.queueFlags & flag; };
-    auto extension_name_pred = [](const auto & extension, const char * ext_name) {return strcmp(extension.extensionName, ext_name) == 0; };
-
-    details.has_graphics_queue = any_of(begin(details.queue_families), end(details.queue_families), bind(queue_family_flag_pred, _1, VK_QUEUE_GRAPHICS_BIT));
-    details.has_transfer_queue = any_of(begin(details.queue_families), end(details.queue_families), bind(queue_family_flag_pred, _1, VK_QUEUE_TRANSFER_BIT));
-    details.has_swapchain_extension = any_of(begin(details.extensions), end(details.extensions), bind(extension_name_pred, _1, VK_KHR_SWAPCHAIN_EXTENSION_NAME));
+    
+    for (uint32_t i = 0; i < details.queue_families.size(); i++)
+    {
+        VkQueueFlags flags = details.queue_families[i].queueFlags;
+        details.supports_graphics = details.supports_graphics || (flags & VK_QUEUE_GRAPHICS_BIT);
+        details.supports_compute =  details.supports_compute || (flags & VK_QUEUE_COMPUTE_BIT);
+        
+        VkBool32 pSupported;
+        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &pSupported);
+        details.supports_present = details.supports_present || pSupported;
+    }
 
     return details;
-}
-
-std::vector<QueueDetails> lvk::resolve_queue_requests(const PhysicalDeviceDetails & device_details, const std::vector<QueueRequest> & queue_requests)
-{
-    std::vector<QueueDetails> queue_details;
-    std::vector<uint32_t> remaining_family_queues(device_details.queue_families.size());
-    for (size_t i = 0; i < remaining_family_queues.size(); i++)
-        remaining_family_queues[i] = device_details.queue_families[i].queueCount;
-
-    auto bitcount_of = [](uint32_t i) -> size_t {return std::bitset<32>(i).count(); };
-
-    for (const auto & request : queue_requests)
-    {
-        uint32_t best_family_idx = 0;
-        size_t best_family_bitcount = bitcount_of(device_details.queue_families[0].queueFlags);
-
-        for (uint32_t family_idx = 0; family_idx < device_details.queue_families.size(); family_idx++)
-        {
-            const auto & family = device_details.queue_families[family_idx];
-            uint32_t & queues_remaining = remaining_family_queues[family_idx];
-            size_t bitcount = bitcount_of(family.queueFlags);
-
-            if ((request.first & family.queueFlags) == request.first && queues_remaining >= request.second && bitcount < best_family_bitcount)
-            {
-                best_family_idx = family_idx;
-                best_family_bitcount = bitcount;
-            }
-        }
-
-        const auto & family = device_details.queue_families[best_family_idx];
-        uint32_t & queues_remaining = remaining_family_queues[best_family_idx];
-        for (size_t queue_idx = 0; queue_idx < request.second; queue_idx++)
-        {
-            queue_details.push_back({ family.queueFlags, (uint32_t)best_family_idx, family.queueCount - queues_remaining + (uint32_t)queue_idx });
-        }
-        remaining_family_queues[best_family_idx] -= request.second;
-    }
-    return queue_details;
-}
-
-VkDevice lvk::create_device(VkPhysicalDevice physical_device, uint32_t graphics_queues, uint32_t compute_queues, VkPhysicalDeviceFeatures device_features, std::vector<const char *> extensions)
-{
-    // Create
-    return VkDevice{};
 }

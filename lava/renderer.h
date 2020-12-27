@@ -36,6 +36,7 @@ namespace lava
         glm::mat4 transform;
         glm::mat4 view;
         glm::mat4 proj;
+        float hue_shift;
     };
 
     class Renderer
