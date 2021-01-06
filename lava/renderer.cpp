@@ -129,8 +129,7 @@ Renderer::Renderer(App * app)
     debug_messenger = lvk_instance.get_debug_messenger();
 #endif
 
-    if (!SDL_Vulkan_CreateSurface(app->sdl_window, vulkan_instance, &window_surface))
-        throw std::runtime_error("Failed to create window surface from SDL!");
+    window_surface = lvk_instance.create_sdl_window_surface(app->sdl_window);
 
     // Find and select vulkan compatible device for use
     uint32_t device_count;

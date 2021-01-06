@@ -1,6 +1,8 @@
 #include "instance.h"
 #include <iostream>
 #include <algorithm>
+#include <SDL/SDL_video.h>
+#include <SDL/SDL_vulkan.h>
 
 VKAPI_ATTR VkBool32 VKAPI_CALL default_debug_messenger_callback(
     VkDebugUtilsMessageSeverityFlagBitsEXT severity,
@@ -194,5 +196,12 @@ namespace lvk
         
         if (vk_instance != VK_NULL_HANDLE)
             vkDestroyInstance(vk_instance, nullptr);
+    }
+    VkSurfaceKHR instance::create_sdl_window_surface(SDL_Window * sdl_window)
+    {
+        VkSurfaceKHR surface;
+        if (!SDL_Vulkan_CreateSurface(sdl_window, vk_instance, &surface))
+            throw std::runtime_error("Failed to create SDL window surface");
+        return surface;
     }
 }

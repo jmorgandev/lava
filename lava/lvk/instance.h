@@ -4,6 +4,9 @@
 #include <string>
 #include <cstdint>
 #include <vulkan/vulkan.h>
+
+struct SDL_Window;
+
 namespace lvk
 {
     class instance;
@@ -37,18 +40,21 @@ namespace lvk
     class instance
     {
     public:
-        instance() : vk_instance(0), vk_debug_messenger(0) {}
+        instance() : vk_instance(VK_NULL_HANDLE), vk_debug_messenger(VK_NULL_HANDLE) {}
         instance(VkInstance instance, VkDebugUtilsMessengerEXT debug_messenger = VK_NULL_HANDLE);
         instance(instance && rhs);
         instance & operator=(instance && rhs);
+        ~instance();
 
+        // Prevent non-move semantic construction/assignment
         instance(const instance &) = delete;
         instance & operator=(const instance &) = delete;
 
+        //@TODO: Temp getters for underlying vulkan objects for now
         VkInstance get_vk_instance() { return vk_instance; }
         VkDebugUtilsMessengerEXT get_debug_messenger() { return vk_debug_messenger; }
 
-        ~instance();
+        VkSurfaceKHR create_sdl_window_surface(SDL_Window * sdl_window);
     private:
         VkInstance vk_instance;
         VkDebugUtilsMessengerEXT vk_debug_messenger;
