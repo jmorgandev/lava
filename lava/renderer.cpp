@@ -6,6 +6,7 @@
 
 #include "app.h"
 #include "lvk.h"
+#include "lvk/instance.h"
 
 #include <fstream>
 #include <unordered_map>
@@ -104,16 +105,28 @@ Renderer::Renderer(App * app)
     requested_layers.push_back("VK_LAYER_KHRONOS_validation");
 #endif
 
-    auto extensions = lvk::filter_supported_extensions(requested_extensions);
-    auto layers = lvk::filter_supported_layers(requested_layers);
+    //auto extensions = lvk::filter_supported_extensions(requested_extensions);
+    //auto layers = lvk::filter_supported_layers(requested_layers);
 
-    auto debug_create_info = lvk::default_debug_messenger_create_info();
+    //auto debug_create_info = lvk::default_debug_messenger_create_info();
 
     // VkInstance creation call
-    vulkan_instance = lvk::create_instance(VK_API_VERSION_1_2, extensions, layers, &debug_create_info);
+    //vulkan_instance = lvk::create_instance(VK_API_VERSION_1_2, extensions, layers, &debug_create_info);
 
+    //lvk::instance instance(VK_API_VERSION_1_2, extensions, layers);
+
+    lvk_instance = lvk::instance_builder()
+        .api_version(VK_API_VERSION_1_2)
+        .extensions(requested_extensions)
+        .layers(requested_layers)
 #if USE_VALIDATION
-    debug_messenger = lvk::create_debug_messenger(vulkan_instance);
+        .default_debug_messenger()
+#endif
+        .build();
+
+    vulkan_instance = lvk_instance.get_vk_instance();
+#if USE_VALIDATION
+    debug_messenger = lvk_instance.get_debug_messenger();
 #endif
 
     if (!SDL_Vulkan_CreateSurface(app->sdl_window, vulkan_instance, &window_surface))
@@ -1407,8 +1420,8 @@ Renderer::~Renderer()
     vkDestroyDevice(device, nullptr);
 
 #if USE_VALIDATION
-    lvk::destroy_debug_messenger(vulkan_instance, debug_messenger);
+    //lvk::destroy_debug_messenger(vulkan_instance, debug_messenger);
 #endif
     vkDestroySurfaceKHR(vulkan_instance, window_surface, nullptr);
-    vkDestroyInstance(vulkan_instance, nullptr);
+    //vkDestroyInstance(vulkan_instance, nullptr);
 }

@@ -7,6 +7,7 @@
 #include <glm/vec2.hpp>
 #include <glm/mat4x4.hpp>
 #include "typedefs.h"
+#include "lvk/instance.h"
 
 struct SDL_Window;
 
@@ -51,6 +52,7 @@ namespace lava
         void handle_window_resize();
 
     private:
+        lvk::instance lvk_instance;
         VkInstance vulkan_instance;
         VkDebugUtilsMessengerEXT debug_messenger;
         VkPhysicalDevice physical_device;

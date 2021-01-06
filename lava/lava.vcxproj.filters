@@ -5,9 +5,8 @@
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
-    <Filter Include="Resource Files">
-      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    <Filter Include="Source Files\lvk">
+      <UniqueIdentifier>{4acf6cbf-99c5-4e89-b912-7083282f6a31}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -26,6 +25,9 @@
     <ClCompile Include="thirdparty_header_impl.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="lvk\instance.cpp">
+      <Filter>Source Files\lvk</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="app.h">
@@ -39,6 +41,9 @@
     </ClInclude>
     <ClInclude Include="typedefs.h">
       <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="lvk\instance.h">
+      <Filter>Source Files\lvk</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
