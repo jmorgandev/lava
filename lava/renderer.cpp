@@ -7,6 +7,7 @@
 #include "app.h"
 #include "lvk.h"
 #include "lvk/instance.h"
+#include "lvk/device_selector.h"
 
 #include <fstream>
 #include <unordered_map>
@@ -131,19 +132,27 @@ Renderer::Renderer(App * app)
 
     window_surface = lvk_instance.create_sdl_window_surface(app->sdl_window);
 
+    /*
     // Find and select vulkan compatible device for use
     uint32_t device_count;
     vkEnumeratePhysicalDevices(vulkan_instance, &device_count, nullptr);
     if (device_count == 0)
         throw std::runtime_error("Couldn't find any GPUs with Vulkan support!");
 
-    std::vector<VkPhysicalDevice> physical_devices(device_count);
+    
+std::vector<VkPhysicalDevice> physical_devices(device_count);
     vkEnumeratePhysicalDevices(vulkan_instance, &device_count, physical_devices.data());
 
     physical_device = select_optimal_physical_device(physical_devices);
     
     if (physical_device == VK_NULL_HANDLE)
         throw std::runtime_error("Couldn't find a GPU with appropriate features!");
+    */
+
+    physical_device = lvk_instance.select_physical_device(window_surface)
+        .preset_graphics()
+        .min_api_version(VK_API_VERSION_1_2)
+        .select().vk_physical_device;
 
     lvk::PhysicalDeviceDetails device_details = lvk::get_physical_device_details(physical_device, window_surface);
 

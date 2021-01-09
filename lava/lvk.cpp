@@ -246,7 +246,6 @@ lvk::PhysicalDeviceDetails lvk::get_physical_device_details(VkPhysicalDevice dev
     uint32_t length = 0;
 
     vkGetPhysicalDeviceProperties(device, &details.device_properties);
-    
     vkGetPhysicalDeviceMemoryProperties(device, &details.memory_properties);
     for (uint32_t i = 0; i < details.memory_properties.memoryTypeCount; i++)
     {

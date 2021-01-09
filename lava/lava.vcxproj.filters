@@ -28,6 +28,12 @@
     <ClCompile Include="lvk\instance.cpp">
       <Filter>Source Files\lvk</Filter>
     </ClCompile>
+    <ClCompile Include="lvk\device_selector.cpp">
+      <Filter>Source Files\lvk</Filter>
+    </ClCompile>
+    <ClCompile Include="lvk\device.cpp">
+      <Filter>Source Files\lvk</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="app.h">
@@ -43,6 +49,12 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="lvk\instance.h">
+      <Filter>Source Files\lvk</Filter>
+    </ClInclude>
+    <ClInclude Include="lvk\device_selector.h">
+      <Filter>Source Files\lvk</Filter>
+    </ClInclude>
+    <ClInclude Include="lvk\device.h">
       <Filter>Source Files\lvk</Filter>
     </ClInclude>
   </ItemGroup>

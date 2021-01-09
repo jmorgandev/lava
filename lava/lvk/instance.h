@@ -37,6 +37,7 @@ namespace lvk
         std::vector<const char *> requested_layers;
     };
 
+    class device_selector;
     class instance
     {
     public:
@@ -49,6 +50,8 @@ namespace lvk
         // Prevent non-move semantic construction/assignment
         instance(const instance &) = delete;
         instance & operator=(const instance &) = delete;
+
+        device_selector select_physical_device(VkSurfaceKHR surface = VK_NULL_HANDLE);
 
         //@TODO: Temp getters for underlying vulkan objects for now
         VkInstance get_vk_instance() { return vk_instance; }

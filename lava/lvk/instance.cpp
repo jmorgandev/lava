@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <SDL/SDL_video.h>
 #include <SDL/SDL_vulkan.h>
+#include "device_selector.h"
 
 VKAPI_ATTR VkBool32 VKAPI_CALL default_debug_messenger_callback(
     VkDebugUtilsMessageSeverityFlagBitsEXT severity,
@@ -203,5 +204,9 @@ namespace lvk
         if (!SDL_Vulkan_CreateSurface(sdl_window, vk_instance, &surface))
             throw std::runtime_error("Failed to create SDL window surface");
         return surface;
+    }
+    device_selector instance::select_physical_device(VkSurfaceKHR surface)
+    {
+        return device_selector(vk_instance, surface);
     }
 }
