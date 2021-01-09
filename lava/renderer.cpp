@@ -132,29 +132,17 @@ Renderer::Renderer(App * app)
 
     window_surface = lvk_instance.create_sdl_window_surface(app->sdl_window);
 
-    /*
-    // Find and select vulkan compatible device for use
-    uint32_t device_count;
-    vkEnumeratePhysicalDevices(vulkan_instance, &device_count, nullptr);
-    if (device_count == 0)
-        throw std::runtime_error("Couldn't find any GPUs with Vulkan support!");
+    VkPhysicalDeviceFeatures requested_device_features = {};
+    requested_device_features.samplerAnisotropy = VK_TRUE;
 
-    
-std::vector<VkPhysicalDevice> physical_devices(device_count);
-    vkEnumeratePhysicalDevices(vulkan_instance, &device_count, physical_devices.data());
-
-    physical_device = select_optimal_physical_device(physical_devices);
-    
-    if (physical_device == VK_NULL_HANDLE)
-        throw std::runtime_error("Couldn't find a GPU with appropriate features!");
-    */
-
-    physical_device = lvk_instance.select_physical_device(window_surface)
+    physical_device = lvk_instance.select_physical_device()
+        .render_surface(window_surface)
         .preset_graphics()
         .min_api_version(VK_API_VERSION_1_2)
-        .select().vk_physical_device;
+        .with_features(requested_device_features)
+        .select();
 
-    lvk::PhysicalDeviceDetails device_details = lvk::get_physical_device_details(physical_device, window_surface);
+    lvk::PhysicalDeviceDetails device_details = lvk::get_physical_device_details(physical_device.vk(), window_surface);
 
     msaa_samples = get_max_usable_sample_count();
 
@@ -173,7 +161,7 @@ std::vector<VkPhysicalDevice> physical_devices(device_count);
         }
 
         VkBool32 present_support;
-        vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, i, window_surface, &present_support);
+        vkGetPhysicalDeviceSurfaceSupportKHR(physical_device.vk(), i, window_surface, &present_support);
         if (present_support)
         {
             present_queue_family_index = i;
@@ -214,7 +202,7 @@ std::vector<VkPhysicalDevice> physical_devices(device_count);
     device_create_info.enabledLayerCount = 0;
 #endif
 
-    if (vkCreateDevice(physical_device, &device_create_info, nullptr, &device) != VK_SUCCESS)
+    if (vkCreateDevice(physical_device.vk(), &device_create_info, nullptr, &device) != VK_SUCCESS)
         throw std::runtime_error("Failed to create logical device!");
 
     vkGetDeviceQueue(device, graphics_queue_family_index, 0, &graphics_queue);
@@ -222,7 +210,7 @@ std::vector<VkPhysicalDevice> physical_devices(device_count);
 
     sdl_window = app->sdl_window;
 
-    lvk::DeviceSurfaceDetails swapchain_support = lvk::query_surface_details(physical_device, window_surface);
+    lvk::DeviceSurfaceDetails swapchain_support = lvk::query_surface_details(physical_device.vk(), window_surface);
     create_swapchain(swapchain_support);
     create_image_views();
     create_descriptor_set_layout();
@@ -296,7 +284,7 @@ void Renderer::create_swapchain(lvk::DeviceSurfaceDetails surface_details)
     swapchain_create_info.imageArrayLayers = 1;
     swapchain_create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-    lvk::QueueFamilyInfo queue_families = lvk::get_queue_family_info(physical_device, window_surface);
+    lvk::QueueFamilyInfo queue_families = lvk::get_queue_family_info(physical_device.vk(), window_surface);
 
     if (queue_families.graphics_family != queue_families.present_family)
     {
@@ -605,7 +593,7 @@ void Renderer::create_framebuffers()
 
 void Renderer::create_command_pool()
 {
-    lvk::QueueFamilyInfo queue_family_info = lvk::get_queue_family_info(physical_device, window_surface);
+    lvk::QueueFamilyInfo queue_family_info = lvk::get_queue_family_info(physical_device.vk(), window_surface);
     VkCommandPoolCreateInfo pool_info = {};
     pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     pool_info.queueFamilyIndex = queue_family_info.graphics_family;
@@ -970,7 +958,7 @@ void Renderer::destroy_swapchain()
 
 void Renderer::recreate_swapchain()
 {
-    lvk::DeviceSurfaceDetails surface_details = lvk::query_surface_details(physical_device, window_surface);
+    lvk::DeviceSurfaceDetails surface_details = lvk::query_surface_details(physical_device.vk(), window_surface);
     if (surface_details.capabilities.currentExtent.width == 0 || surface_details.capabilities.currentExtent.height == 0)
         return;
 
@@ -1013,7 +1001,7 @@ void Renderer::create_buffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemo
     VkMemoryAllocateInfo alloc_info{};
     alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     alloc_info.allocationSize = mem_info.size;
-    alloc_info.memoryTypeIndex = lvk::find_memory_type(mem_info.memoryTypeBits, properties, physical_device);
+    alloc_info.memoryTypeIndex = lvk::find_memory_type(mem_info.memoryTypeBits, properties, physical_device.vk());
 
     if (vkAllocateMemory(device, &alloc_info, nullptr, memory) != VK_SUCCESS)
         throw std::runtime_error("Failed to allocate buffer memory");
@@ -1139,7 +1127,7 @@ void Renderer::create_image(uint32_t width, uint32_t height, uint32_t mip_levels
     VkMemoryAllocateInfo alloc_info{};
     alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     alloc_info.allocationSize = mrequirements.size;
-    alloc_info.memoryTypeIndex = lvk::find_memory_type(mrequirements.memoryTypeBits, properties, physical_device);
+    alloc_info.memoryTypeIndex = lvk::find_memory_type(mrequirements.memoryTypeBits, properties, physical_device.vk());
 
     if (vkAllocateMemory(device, &alloc_info, nullptr, memory) != VK_SUCCESS)
         throw std::runtime_error("Failed to allocate image memory");
@@ -1207,7 +1195,7 @@ VkFormat Renderer::find_supported_format(const std::vector<VkFormat> & candidate
     for (VkFormat format : candidates) 
     {
         VkFormatProperties properties;
-        vkGetPhysicalDeviceFormatProperties(physical_device, format, &properties);
+        vkGetPhysicalDeviceFormatProperties(physical_device.vk(), format, &properties);
 
         if (tiling == VK_IMAGE_TILING_LINEAR && (properties.linearTilingFeatures & features) == features)
             return format;
@@ -1227,7 +1215,7 @@ VkFormat Renderer::find_depth_format()
 void Renderer::generate_mipmaps(VkImage image, VkFormat format, int32_t width, int32_t height, uint32_t mip_levels)
 {
     VkFormatProperties properties;
-    vkGetPhysicalDeviceFormatProperties(physical_device, format, &properties);
+    vkGetPhysicalDeviceFormatProperties(physical_device.vk(), format, &properties);
 
     if (!(properties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT))
         throw std::runtime_error("texture image format does not support linear blitting");
@@ -1302,7 +1290,7 @@ void Renderer::generate_mipmaps(VkImage image, VkFormat format, int32_t width, i
 VkSampleCountFlagBits Renderer::get_max_usable_sample_count()
 {
     VkPhysicalDeviceProperties properties;
-    vkGetPhysicalDeviceProperties(physical_device, &properties);
+    vkGetPhysicalDeviceProperties(physical_device.vk(), &properties);
 
     VkSampleCountFlags counts = properties.limits.framebufferColorSampleCounts & properties.limits.framebufferDepthSampleCounts;
     constexpr VkSampleCountFlagBits count_priorities[] =

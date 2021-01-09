@@ -8,6 +8,7 @@
 #include <glm/mat4x4.hpp>
 #include "typedefs.h"
 #include "lvk/instance.h"
+#include "lvk/device.h"
 
 struct SDL_Window;
 
@@ -55,7 +56,7 @@ namespace lava
         lvk::instance lvk_instance;
         VkInstance vulkan_instance;
         VkDebugUtilsMessengerEXT debug_messenger;
-        VkPhysicalDevice physical_device;
+        lvk::physical_device physical_device;
         VkDevice device;
         VkQueue graphics_queue;
         VkQueue present_queue;

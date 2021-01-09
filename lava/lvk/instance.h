@@ -51,7 +51,7 @@ namespace lvk
         instance(const instance &) = delete;
         instance & operator=(const instance &) = delete;
 
-        device_selector select_physical_device(VkSurfaceKHR surface = VK_NULL_HANDLE);
+        device_selector select_physical_device();
 
         //@TODO: Temp getters for underlying vulkan objects for now
         VkInstance get_vk_instance() { return vk_instance; }

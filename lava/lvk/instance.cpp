@@ -205,8 +205,8 @@ namespace lvk
             throw std::runtime_error("Failed to create SDL window surface");
         return surface;
     }
-    device_selector instance::select_physical_device(VkSurfaceKHR surface)
+    device_selector instance::select_physical_device()
     {
-        return device_selector(vk_instance, surface);
+        return device_selector(vk_instance);
     }
 }

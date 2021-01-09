@@ -4,35 +4,15 @@
 #include <vector>
 #include <vulkan/vulkan.h>
 #include <functional>
+#include "device.h"
 
 namespace lvk
 {
-    constexpr uint64_t operator""_GoB(unsigned long long const x)
+    constexpr uint64_t operator""_GB(unsigned long long const x)
     {
         return 1024 * 1024 * 1024 * x;
     }
-    struct physical_device
-    {
-        physical_device(VkPhysicalDevice physical_device, VkSurfaceKHR surface = VK_NULL_HANDLE);
-
-        int32_t find_queue_family(VkQueueFlags flags) const;
-        int32_t find_exclusive_queue_family(VkQueueFlags flags) const;
-        int32_t find_present_supported_queue_family() const;
-        VkBool32 queue_family_supports_present(uint32_t index) const;
-        bool supports_features(VkPhysicalDeviceFeatures requested_features) const;
-
-        VkPhysicalDevice vk_physical_device;
-        VkSurfaceKHR surface;
-        VkPhysicalDeviceProperties properties;
-        VkPhysicalDeviceMemoryProperties memory_properties;
-        VkPhysicalDeviceFeatures features;
-        VkDeviceSize local_memory_size;
-        uint32_t api_version;
-        std::vector<VkQueueFamilyProperties> queue_families;
-        std::vector<VkExtensionProperties> extensions;
-        std::vector<VkSurfaceFormatKHR> surface_formats;
-        std::vector<VkPresentModeKHR> present_modes;
-    };
+    
 
     enum class device_preference
     {
@@ -53,17 +33,19 @@ namespace lvk
     class device_selector
     {
     public:
-        device_selector(VkInstance instance, VkSurfaceKHR surface = VK_NULL_HANDLE);
+        device_selector(VkInstance instance);
 
+        device_selector & render_surface(VkSurfaceKHR);
         device_selector & min_api_version(uint32_t api);
         device_selector & min_api_version(uint32_t major, uint32_t minor, uint32_t patch);
+        device_selector & with_features(VkPhysicalDeviceFeatures features);
 
-        device_selector & preset_graphics(VkDeviceSize minimum_memory = 1_GoB);
+        device_selector & preset_graphics(VkDeviceSize minimum_memory = 1_GB);
 
         physical_device select();
     private:
         VkInstance vk_instance;
-        VkSurfaceKHR surface;
+        VkSurfaceKHR vk_surface;
         std::vector<VkPhysicalDevice> physical_devices;
 
         struct device_criteria
