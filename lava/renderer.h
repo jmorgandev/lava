@@ -144,7 +144,6 @@ namespace lava
         VkFormat find_supported_format(const std::vector<VkFormat> & candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
         VkFormat find_depth_format();
         void generate_mipmaps(VkImage image, VkFormat format, int32_t width, int32_t height, uint32_t mip_levels);
-        VkSampleCountFlagBits get_max_usable_sample_count();
 
         void update_uniform_buffer(uint32_t current_image);
 

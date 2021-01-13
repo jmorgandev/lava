@@ -8,9 +8,12 @@
 
 namespace lvk
 {
-    constexpr uint64_t operator""_GB(unsigned long long const x)
+    inline namespace literals
     {
-        return 1024 * 1024 * 1024 * x;
+        constexpr uint64_t operator""_GB(unsigned long long const x)
+        {
+            return 1024 * 1024 * 1024 * x;
+        }
     }
     
 
@@ -23,18 +26,23 @@ namespace lvk
         cpu = VK_PHYSICAL_DEVICE_TYPE_CPU,
         any = VK_PHYSICAL_DEVICE_TYPE_END_RANGE + 1
     };
-    enum class queue_preference
-    {
-        any,
-        supported,
-        dedicated
-    };
 
     class device_selector
     {
     public:
         device_selector(VkInstance instance);
 
+        device_selector & prefer_device_type(device_preference type_preference);
+        device_selector & require_compute_queue();
+        device_selector & require_separate_compute_queue();
+        device_selector & require_exclusive_compute_queue();
+        device_selector & require_transfer_queue();
+        device_selector & require_separate_transfer_queue();
+        device_selector & require_exclusive_transfer_queue();
+        device_selector & require_present_support();
+        device_selector & with_extension(const char * name);
+        device_selector & with_extensions(const std::vector<const char *> & names);
+        device_selector & minimum_memory(VkDeviceSize size);
         device_selector & render_surface(VkSurfaceKHR);
         device_selector & min_api_version(uint32_t api);
         device_selector & min_api_version(uint32_t major, uint32_t minor, uint32_t patch);
@@ -48,10 +56,16 @@ namespace lvk
         VkSurfaceKHR vk_surface;
         std::vector<VkPhysicalDevice> physical_devices;
 
+        enum class queue_preference
+        {
+            any,
+            available,
+            separate_from_graphics,
+            exclusive
+        };
         struct device_criteria
         {
-            device_preference device_preference = device_preference::any;
-            queue_preference graphics_queue_preference = queue_preference::any;
+            device_preference type_preference = device_preference::any;
             queue_preference compute_queue_preference = queue_preference::any;
             queue_preference transfer_queue_preference = queue_preference::any;
             bool present_support = false;

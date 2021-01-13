@@ -54,7 +54,7 @@ namespace lvk
         device_selector select_physical_device();
 
         //@TODO: Temp getters for underlying vulkan objects for now
-        VkInstance get_vk_instance() { return vk_instance; }
+        VkInstance vk() { return vk_instance; }
         VkDebugUtilsMessengerEXT get_debug_messenger() { return vk_debug_messenger; }
 
         VkSurfaceKHR create_sdl_window_surface(SDL_Window * sdl_window);

@@ -44,6 +44,14 @@ namespace lvk
                 return true;
         return false;
     }
+    bool physical_device::has_mutually_exclusive_queue_family(VkQueueFlags flags, VkQueueFlags exclude_flags) const
+    {
+        for (auto & family : queue_families)
+            if ((family.queueFlags & flags) == flags &&
+                (family.queueFlags & exclude_flags) != exclude_flags)
+                return true;
+        return false;
+    }
     bool physical_device::has_exclusive_queue_family(VkQueueFlags flags) const
     {
         for (auto & family : queue_families)
@@ -65,6 +73,35 @@ namespace lvk
         VkBool32 support = false;
         vkGetPhysicalDeviceSurfaceSupportKHR(vk_physical_device, index, surface, &support);
         return support;
+    }
+    uint32_t physical_device::compatible_queue_family_index(VkQueueFlags flags) const
+    {
+        for (uint32_t i = 0; i < queue_families.size(); i++)
+            if (queue_families[i].queueFlags & flags)
+                return i;
+        throw std::runtime_error("Physical device does not have compatible queue family");
+    }
+    uint32_t physical_device::mutually_exclusive_queue_family_index(VkQueueFlags flags, VkQueueFlags exclude_flags) const
+    {
+        for (uint32_t i = 0; i < queue_families.size(); i++)
+            if ((queue_families[i].queueFlags & flags) == flags &&
+                (queue_families[i].queueFlags & exclude_flags) != exclude_flags)
+                return i;
+        throw std::runtime_error("Physical device does not have mutually exclusive queue family");
+    }
+    uint32_t physical_device::exclusive_queue_family_index(VkQueueFlags flags) const
+    {
+        for (uint32_t i = 0; i < queue_families.size(); i++)
+            if ((queue_families[i].queueFlags & flags) == flags)
+                return i;
+        throw std::runtime_error("Physical device does not have exclusive queue family");
+    }
+    uint32_t physical_device::present_queue_family_index() const
+    {
+        for (uint32_t i = 0; i < queue_families.size(); i++)
+            if (queue_family_supports_present(i))
+                return i;
+        throw std::runtime_error("Physical device does not have present supported queue family");
     }
     bool physical_device::supports_features(VkPhysicalDeviceFeatures requested_features) const
     {
@@ -125,5 +162,17 @@ namespace lvk
             (requested_features.inheritedQueries && !features.inheritedQueries))
             return false;
         return true;
+    }
+    VkSampleCountFlagBits physical_device::max_usable_sample_count() const
+    {
+        VkSampleCountFlags counts = properties.limits.framebufferColorSampleCounts & properties.limits.framebufferDepthSampleCounts;
+        constexpr VkSampleCountFlagBits count_priorities[] =
+        {
+            VK_SAMPLE_COUNT_64_BIT, VK_SAMPLE_COUNT_32_BIT, VK_SAMPLE_COUNT_16_BIT,
+            VK_SAMPLE_COUNT_8_BIT, VK_SAMPLE_COUNT_4_BIT, VK_SAMPLE_COUNT_2_BIT
+        };
+        for (auto item : count_priorities)
+            if (counts & item) return item;
+        return VK_SAMPLE_COUNT_1_BIT;
     }
 }

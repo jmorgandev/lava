@@ -12,6 +12,61 @@ namespace lvk
         physical_devices.resize(count);
         vkEnumeratePhysicalDevices(vk_instance, &count, physical_devices.data());
     }
+    device_selector & device_selector::prefer_device_type(device_preference type_preference)
+    {
+        criteria.type_preference = type_preference;
+        return *this;
+    }
+    device_selector & device_selector::require_compute_queue()
+    {
+        criteria.compute_queue_preference = queue_preference::available;
+        return *this;
+    }
+    device_selector & device_selector::require_separate_compute_queue()
+    {
+        criteria.compute_queue_preference = queue_preference::separate_from_graphics;
+        return *this;
+    }
+    device_selector & device_selector::require_exclusive_compute_queue()
+    {
+        criteria.compute_queue_preference = queue_preference::exclusive;
+        return *this;
+    }
+    device_selector & device_selector::require_transfer_queue()
+    {
+        criteria.transfer_queue_preference = queue_preference::available;
+        return *this;
+    }
+    device_selector & device_selector::require_separate_transfer_queue()
+    {
+        criteria.transfer_queue_preference = queue_preference::separate_from_graphics;
+        return *this;
+    }
+    device_selector & device_selector::require_exclusive_transfer_queue()
+    {
+        criteria.transfer_queue_preference = queue_preference::exclusive;
+        return *this;
+    }
+    device_selector & device_selector::require_present_support()
+    {
+        criteria.present_support = true;
+        return *this;
+    }
+    device_selector & device_selector::with_extension(const char * name)
+    {
+        criteria.extensions.emplace_back(name);
+        return *this;
+    }
+    device_selector & device_selector::with_extensions(const std::vector<const char *> & names)
+    {
+        criteria.extensions.insert(criteria.extensions.end(), names.begin(), names.end());
+        return *this;
+    }
+    device_selector & device_selector::minimum_memory(VkDeviceSize size)
+    {
+        criteria.available_memory = size;
+        return *this;
+    }
     device_selector & device_selector::render_surface(VkSurfaceKHR surface)
     {
         vk_surface = surface;
@@ -29,19 +84,6 @@ namespace lvk
     device_selector & device_selector::with_features(VkPhysicalDeviceFeatures features)
     {
         criteria.features = features;
-        return *this;
-    }
-
-    device_selector & device_selector::preset_graphics(VkDeviceSize minimum_memory)
-    {
-        criteria.device_preference = device_preference::discrete_gpu;
-        criteria.graphics_queue_preference = queue_preference::supported;
-        criteria.compute_queue_preference = queue_preference::any;
-        criteria.transfer_queue_preference = queue_preference::supported;
-        criteria.present_support = true;
-        criteria.extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-        criteria.available_memory = minimum_memory;
-        criteria.vulkan_api_version = VK_API_VERSION_1_0;
         return *this;
     }
 
@@ -64,25 +106,17 @@ namespace lvk
         if (criteria.vulkan_api_version > candidate.properties.apiVersion)
             return false;
 
-        switch (criteria.graphics_queue_preference)
-        {
-        case queue_preference::supported:
-            if (!candidate.has_compatible_queue_family(VK_QUEUE_GRAPHICS_BIT))
-                return false;
-            break;
-        case queue_preference::dedicated:
-            if (!candidate.has_exclusive_queue_family(VK_QUEUE_GRAPHICS_BIT))
-                return false;
-            break;
-        }
-
         switch (criteria.compute_queue_preference)
         {
-        case queue_preference::supported:
+        case queue_preference::available:
             if (!candidate.has_compatible_queue_family(VK_QUEUE_COMPUTE_BIT))
                 return false;
             break;
-        case queue_preference::dedicated:
+        case queue_preference::separate_from_graphics:
+            if (!candidate.has_mutually_exclusive_queue_family(VK_QUEUE_COMPUTE_BIT, VK_QUEUE_GRAPHICS_BIT))
+                return false;
+            break;
+        case queue_preference::exclusive:
             if (!candidate.has_exclusive_queue_family(VK_QUEUE_COMPUTE_BIT))
                 return false;
             break;
@@ -90,11 +124,15 @@ namespace lvk
 
         switch (criteria.transfer_queue_preference)
         {
-        case queue_preference::supported:
+        case queue_preference::available:
             if (!candidate.has_compatible_queue_family(VK_QUEUE_TRANSFER_BIT))
                 return false;
             break;
-        case queue_preference::dedicated:
+        case queue_preference::separate_from_graphics:
+            if (!candidate.has_mutually_exclusive_queue_family(VK_QUEUE_TRANSFER_BIT, VK_QUEUE_GRAPHICS_BIT))
+                return false;
+            break;
+        case queue_preference::exclusive:
             if (!candidate.has_exclusive_queue_family(VK_QUEUE_TRANSFER_BIT))
                 return false;
             break;
@@ -116,7 +154,7 @@ namespace lvk
             (candidate.surface_formats.empty() || candidate.present_modes.empty()))
             return false;
 
-        if (criteria.device_preference != (device_preference)candidate.properties.deviceType)
+        if (criteria.type_preference != (device_preference)candidate.properties.deviceType)
             return false;
 
         if (!candidate.supports_features(criteria.features))

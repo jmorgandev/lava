@@ -106,16 +106,6 @@ Renderer::Renderer(App * app)
     requested_layers.push_back("VK_LAYER_KHRONOS_validation");
 #endif
 
-    //auto extensions = lvk::filter_supported_extensions(requested_extensions);
-    //auto layers = lvk::filter_supported_layers(requested_layers);
-
-    //auto debug_create_info = lvk::default_debug_messenger_create_info();
-
-    // VkInstance creation call
-    //vulkan_instance = lvk::create_instance(VK_API_VERSION_1_2, extensions, layers, &debug_create_info);
-
-    //lvk::instance instance(VK_API_VERSION_1_2, extensions, layers);
-
     lvk_instance = lvk::instance_builder()
         .api_version(VK_API_VERSION_1_2)
         .extensions(requested_extensions)
@@ -125,7 +115,7 @@ Renderer::Renderer(App * app)
 #endif
         .build();
 
-    vulkan_instance = lvk_instance.get_vk_instance();
+    vulkan_instance = lvk_instance.vk();
 #if USE_VALIDATION
     debug_messenger = lvk_instance.get_debug_messenger();
 #endif
@@ -135,39 +125,26 @@ Renderer::Renderer(App * app)
     VkPhysicalDeviceFeatures requested_device_features = {};
     requested_device_features.samplerAnisotropy = VK_TRUE;
 
+    using namespace lvk::literals;
+
     physical_device = lvk_instance.select_physical_device()
         .render_surface(window_surface)
-        .preset_graphics()
+        .prefer_device_type(lvk::device_preference::discrete_gpu)
+        .require_present_support()
+        .with_extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME)
+        .minimum_memory(1_GB)
         .min_api_version(VK_API_VERSION_1_2)
-        .with_features(requested_device_features)
         .select();
 
     lvk::PhysicalDeviceDetails device_details = lvk::get_physical_device_details(physical_device.vk(), window_surface);
 
-    msaa_samples = get_max_usable_sample_count();
+    msaa_samples = physical_device.max_usable_sample_count();
 
     // Find main graphics queue with present capabilities
-    uint32_t graphics_queue_family_index = UINT32_MAX;
-    uint32_t present_queue_family_index = UINT32_MAX;
-    for (uint32_t i = 0; i < device_details.queue_families.size(); i++)
-    {
-        const auto & family = device_details.queue_families[i];
-     
-        VkQueueFlags flags = device_details.queue_families[i].queueFlags;
-
-        if (flags & VK_QUEUE_GRAPHICS_BIT)
-        {
-            graphics_queue_family_index = i;
-        }
-
-        VkBool32 present_support;
-        vkGetPhysicalDeviceSurfaceSupportKHR(physical_device.vk(), i, window_surface, &present_support);
-        if (present_support)
-        {
-            present_queue_family_index = i;
-        }
-    }
-
+    uint32_t graphics_queue_family_index = physical_device.compatible_queue_family_index(VK_QUEUE_GRAPHICS_BIT);
+    uint32_t present_queue_family_index = physical_device.queue_family_supports_present(graphics_queue_family_index) ?
+                                            graphics_queue_family_index : physical_device.present_queue_family_index();
+    
     std::set<uint32_t> unique_indices = { graphics_queue_family_index, present_queue_family_index };
     std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
     for (uint32_t index : unique_indices)
@@ -1285,22 +1262,6 @@ void Renderer::generate_mipmaps(VkImage image, VkFormat format, int32_t width, i
                          0, nullptr, 0, nullptr, 1, &barrier);
 
     end_single_time_commands(command_buffer);
-}
-
-VkSampleCountFlagBits Renderer::get_max_usable_sample_count()
-{
-    VkPhysicalDeviceProperties properties;
-    vkGetPhysicalDeviceProperties(physical_device.vk(), &properties);
-
-    VkSampleCountFlags counts = properties.limits.framebufferColorSampleCounts & properties.limits.framebufferDepthSampleCounts;
-    constexpr VkSampleCountFlagBits count_priorities[] =
-    {
-        VK_SAMPLE_COUNT_64_BIT, VK_SAMPLE_COUNT_32_BIT, VK_SAMPLE_COUNT_16_BIT,
-        VK_SAMPLE_COUNT_8_BIT, VK_SAMPLE_COUNT_4_BIT, VK_SAMPLE_COUNT_2_BIT
-    };
-    for (auto item : count_priorities)
-        if (counts & item) return item;
-    return VK_SAMPLE_COUNT_1_BIT;
 }
 
 void Renderer::draw_frame()
