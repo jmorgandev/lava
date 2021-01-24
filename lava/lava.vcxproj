@@ -125,6 +125,7 @@
     <ClCompile Include="lvk\device.cpp" />
     <ClCompile Include="lvk\device_selector.cpp" />
     <ClCompile Include="lvk\instance.cpp" />
+    <ClCompile Include="lvk\physical_device.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="renderer.cpp" />
     <ClCompile Include="thirdparty_header_impl.cpp" />
@@ -135,6 +136,7 @@
     <ClInclude Include="lvk\device.h" />
     <ClInclude Include="lvk\device_selector.h" />
     <ClInclude Include="lvk\instance.h" />
+    <ClInclude Include="lvk\physical_device.h" />
     <ClInclude Include="renderer.h" />
     <ClInclude Include="typedefs.h" />
   </ItemGroup>

@@ -45,7 +45,7 @@ namespace lvk
         instance(VkInstance instance, VkDebugUtilsMessengerEXT debug_messenger = VK_NULL_HANDLE);
         instance(instance && rhs);
         instance & operator=(instance && rhs);
-        ~instance();
+        void destroy();
 
         // Prevent non-move semantic construction/assignment
         instance(const instance &) = delete;

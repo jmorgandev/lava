@@ -3,42 +3,51 @@
 
 #include <vulkan/vulkan.h>
 #include <vector>
+#include "physical_device.h"
 
 namespace lvk
 {
-    class physical_device
+    class physical_device;
+
+    class device
     {
-        friend class device_selector;
     public:
-        physical_device();
-        physical_device(VkPhysicalDevice physical_device, VkSurfaceKHR surface = VK_NULL_HANDLE);
+        device();
+        device(VkDevice device, const physical_device & physical_device);
+        device(device &&);
+        device & operator=(device &&);
+        void destroy();
+        ~device(){}
 
-        bool has_compatible_queue_family(VkQueueFlags flags) const;
-        bool has_mutually_exclusive_queue_family(VkQueueFlags flags, VkQueueFlags exclude_flags) const;
-        bool has_exclusive_queue_family(VkQueueFlags flags) const;
-        bool has_present_supported_queue_family() const;
-        VkBool32 queue_family_supports_present(uint32_t index) const;
-        uint32_t compatible_queue_family_index(VkQueueFlags flags) const;
-        uint32_t mutually_exclusive_queue_family_index(VkQueueFlags flags, VkQueueFlags exclude_flags) const;
-        uint32_t exclusive_queue_family_index(VkQueueFlags flags) const;
-        uint32_t present_queue_family_index() const;
 
-        bool supports_features(VkPhysicalDeviceFeatures requested_features) const;
-        VkSampleCountFlagBits max_usable_sample_count() const;
+        // Prevent non-move semantic construction/assignment
+        device(const device &) = delete;
+        device & operator=(const device &) = delete;
 
-        VkPhysicalDevice vk() const { return vk_physical_device; }
+        VkDevice vk() { return vk_device; }
+        VkPhysicalDevice vk_physical_device() { return phys_device.vk(); }
     private:
-        VkPhysicalDevice vk_physical_device;
-        VkSurfaceKHR surface;
-        VkPhysicalDeviceProperties properties;
-        VkPhysicalDeviceMemoryProperties memory_properties;
-        VkPhysicalDeviceFeatures features;
-        VkDeviceSize local_memory_size;
-        uint32_t api_version;
-        std::vector<VkQueueFamilyProperties> queue_families;
-        std::vector<VkExtensionProperties> extensions;
-        std::vector<VkSurfaceFormatKHR> surface_formats;
-        std::vector<VkPresentModeKHR> present_modes;
+        VkDevice vk_device;
+        physical_device phys_device;
+    };
+
+    class device_builder
+    {
+    public:
+        device_builder(const physical_device & physical_device);
+
+        device_builder & queues(uint32_t family_index, uint32_t count, std::vector<float> priorities);
+        device_builder & queues(uint32_t family_index, uint32_t count);
+        device_builder & extension(const char * name);
+        device_builder & extensions(std::vector<const char *> names);
+        device_builder & features(VkPhysicalDeviceFeatures features);
+        
+        device build();
+    private: 
+        const physical_device & phys_device;
+        std::pair<std::vector<VkDeviceQueueCreateInfo>, std::vector<std::vector<float>>> queue_infos_and_priorities;
+        std::vector<const char *> enabled_extensions;
+        VkPhysicalDeviceFeatures enabled_features;
     };
 }
 

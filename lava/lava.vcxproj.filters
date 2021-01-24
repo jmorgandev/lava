@@ -34,6 +34,9 @@
     <ClCompile Include="lvk\device.cpp">
       <Filter>Source Files\lvk</Filter>
     </ClCompile>
+    <ClCompile Include="lvk\physical_device.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="app.h">
@@ -57,5 +60,6 @@
     <ClInclude Include="lvk\device.h">
       <Filter>Source Files\lvk</Filter>
     </ClInclude>
+    <ClInclude Include="lvk\physical_device.h" />
   </ItemGroup>
 </Project>

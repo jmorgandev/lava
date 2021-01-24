@@ -1,4 +1,5 @@
 #include "device_selector.h"
+#include "physical_device.h"
 
 namespace lvk
 {

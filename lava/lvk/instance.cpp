@@ -187,16 +187,15 @@ namespace lvk
         }
         return *this;
     }
-    instance::~instance()
+    void instance::destroy()
     {
         if (vk_debug_messenger != VK_NULL_HANDLE)
         {
             auto destroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(vk_instance, "vkDestroyDebugUtilsMessengerEXT");
             destroyDebugUtilsMessengerEXT(vk_instance, vk_debug_messenger, nullptr);
         }
-        
-        if (vk_instance != VK_NULL_HANDLE)
-            vkDestroyInstance(vk_instance, nullptr);
+
+        vkDestroyInstance(vk_instance, nullptr);
     }
     VkSurfaceKHR instance::create_sdl_window_surface(SDL_Window * sdl_window)
     {

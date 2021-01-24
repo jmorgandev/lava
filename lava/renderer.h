@@ -56,7 +56,7 @@ namespace lava
         lvk::instance lvk_instance;
         VkInstance vulkan_instance;
         VkDebugUtilsMessengerEXT debug_messenger;
-        lvk::physical_device physical_device;
+        lvk::device lvk_device;
         VkDevice device;
         VkQueue graphics_queue;
         VkQueue present_queue;
