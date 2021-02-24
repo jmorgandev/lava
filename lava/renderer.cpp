@@ -128,7 +128,7 @@ Renderer::Renderer(App * app)
 
     using namespace lvk::literals;
 
-    lvk::physical_device phys_device = lvk_instance.select_physical_device()
+    lvk_physical_device = lvk_instance.select_physical_device()
         .render_surface(window_surface)
         .prefer_device_type(lvk::device_preference::discrete_gpu)
         .require_present_support()
@@ -137,16 +137,16 @@ Renderer::Renderer(App * app)
         .min_api_version(VK_API_VERSION_1_2)
         .select();
 
-    lvk::PhysicalDeviceDetails device_details = lvk::get_physical_device_details(phys_device.vk(), window_surface);
+    lvk::PhysicalDeviceDetails device_details = lvk::get_physical_device_details(lvk_physical_device.vk(), window_surface);
 
-    msaa_samples = phys_device.max_usable_sample_count();
+    msaa_samples = lvk_physical_device.max_usable_sample_count();
 
     // Find main graphics queue with present capabilities
-    uint32_t graphics_queue_family_index = phys_device.compatible_queue_family_index(VK_QUEUE_GRAPHICS_BIT);
-    uint32_t present_queue_family_index = phys_device.queue_family_supports_present(graphics_queue_family_index) ?
-                                            graphics_queue_family_index : phys_device.present_queue_family_index();
+    graphics_queue_family_index = lvk_physical_device.compatible_queue_family_index(VK_QUEUE_GRAPHICS_BIT);
+    present_queue_family_index = lvk_physical_device.queue_family_supports_present(graphics_queue_family_index) ?
+                                            graphics_queue_family_index : lvk_physical_device.present_queue_family_index();
     
-    lvk::device_builder device_builder(phys_device);
+    lvk::device_builder device_builder(lvk_physical_device);
     device_builder
         .extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME)
         .features(requested_device_features)
@@ -162,8 +162,27 @@ Renderer::Renderer(App * app)
 
     sdl_window = app->sdl_window;
 
-    lvk::DeviceSurfaceDetails swapchain_support = lvk::query_surface_details(lvk_device.vk_physical_device(), window_surface);
-    create_swapchain(swapchain_support);
+    int draw_width = 0, draw_height = 0;
+    SDL_Vulkan_GetDrawableSize(sdl_window, &draw_width, &draw_height);
+
+    lvk_swapchain = lvk::swapchain_builder(lvk_device, lvk_physical_device)
+        .size((uint32_t)draw_width, (uint32_t)draw_height)
+        .image_usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+        .composite_alpha(VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR)
+        .clipped(VK_TRUE)
+        .graphics_family_index(graphics_queue_family_index)
+        .present_family_index(present_queue_family_index)
+        .build();
+    swapchain = lvk_swapchain.vk();
+    uint32_t image_count = 0;
+    swapchain_extent = lvk_physical_device.choose_swapchain_extent((uint32_t)draw_width, (uint32_t)draw_height);
+    vkGetSwapchainImagesKHR(device, swapchain, &image_count, nullptr);
+    swapchain_images.resize(image_count);
+    vkGetSwapchainImagesKHR(device, swapchain, &image_count, swapchain_images.data());
+    swapchain_image_format = lvk_physical_device.choose_swapchain_surface_format().format;
+    
+
+    //lvk::DeviceSurfaceDetails swapchain_support = lvk::query_surface_details(lvk_device.vk_physical_device(), window_surface);
     create_image_views();
     create_descriptor_set_layout();
     create_render_pass();
@@ -208,67 +227,6 @@ VkPhysicalDevice Renderer::select_optimal_physical_device(const std::vector<VkPh
         }
     }
     return VK_NULL_HANDLE;
-}
-
-void Renderer::create_swapchain(lvk::DeviceSurfaceDetails surface_details)
-{
-    int draw_width = 0, draw_height = 0;
-    SDL_Vulkan_GetDrawableSize(sdl_window, &draw_width, &draw_height);
-
-    VkExtent2D extent = lvk::choose_swapchain_extent(surface_details.capabilities, draw_width, draw_height);
-
-    VkSurfaceFormatKHR swapchain_format = lvk::choose_swapchain_surface_format(surface_details.formats);
-    VkPresentModeKHR swapchain_present_mode = lvk::choose_swapchain_present_mode(surface_details.present_modes);
-
-    uint32_t swapchain_length = surface_details.capabilities.minImageCount + 1;
-    if (surface_details.capabilities.maxImageCount > 0 && swapchain_length > surface_details.capabilities.maxImageCount)
-    {
-        swapchain_length = surface_details.capabilities.maxImageCount;
-    }
-
-    VkSwapchainCreateInfoKHR swapchain_create_info = {};
-    swapchain_create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-    swapchain_create_info.surface = window_surface;
-    swapchain_create_info.minImageCount = swapchain_length;
-    swapchain_create_info.imageFormat = swapchain_format.format;
-    swapchain_create_info.imageColorSpace = swapchain_format.colorSpace;
-    swapchain_create_info.imageExtent = extent;
-    swapchain_create_info.imageArrayLayers = 1;
-    swapchain_create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-
-    lvk::QueueFamilyInfo queue_families = lvk::get_queue_family_info(lvk_device.vk_physical_device(), window_surface);
-
-    if (queue_families.graphics_family != queue_families.present_family)
-    {
-        swapchain_create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-        swapchain_create_info.queueFamilyIndexCount = 2;
-        uint32_t indices[] = { (uint32_t)queue_families.graphics_family, (uint32_t)queue_families.present_family };
-        swapchain_create_info.pQueueFamilyIndices = indices;
-    }
-    else
-    {
-        swapchain_create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        swapchain_create_info.queueFamilyIndexCount = 0;
-        swapchain_create_info.pQueueFamilyIndices = nullptr;
-    }
-
-    swapchain_create_info.preTransform = surface_details.capabilities.currentTransform;
-    swapchain_create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-    swapchain_create_info.presentMode = swapchain_present_mode;
-    swapchain_create_info.clipped = VK_TRUE;
-    swapchain_create_info.oldSwapchain = VK_NULL_HANDLE;
-
-    if (vkCreateSwapchainKHR(device, &swapchain_create_info, nullptr, &swapchain) != VK_SUCCESS)
-    {
-        throw std::runtime_error("Failed to create swap chain!");
-    }
-
-    vkGetSwapchainImagesKHR(device, swapchain, &swapchain_length, nullptr);
-    swapchain_images.resize(swapchain_length);
-    vkGetSwapchainImagesKHR(device, swapchain, &swapchain_length, swapchain_images.data());
-
-    swapchain_image_format = swapchain_format.format;
-    swapchain_extent = extent;
 }
 
 void Renderer::create_image_views()
@@ -545,7 +503,7 @@ void Renderer::create_framebuffers()
 
 void Renderer::create_command_pool()
 {
-    lvk::QueueFamilyInfo queue_family_info = lvk::get_queue_family_info(lvk_device.vk_physical_device(), window_surface);
+    lvk::QueueFamilyInfo queue_family_info = lvk::get_queue_family_info(lvk_physical_device.vk(), window_surface);
     VkCommandPoolCreateInfo pool_info = {};
     pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     pool_info.queueFamilyIndex = queue_family_info.graphics_family;
@@ -897,7 +855,8 @@ void Renderer::destroy_swapchain()
     vkDestroyRenderPass(device, render_pass, nullptr);
     for (const auto image_view : swapchain_image_views)
         vkDestroyImageView(device, image_view, nullptr);
-    vkDestroySwapchainKHR(device, swapchain, nullptr);
+    
+    lvk_swapchain.destroy();
 
     for (size_t i = 0; i < swapchain_images.size(); i++)
     {
@@ -910,7 +869,7 @@ void Renderer::destroy_swapchain()
 
 void Renderer::recreate_swapchain()
 {
-    lvk::DeviceSurfaceDetails surface_details = lvk::query_surface_details(lvk_device.vk_physical_device(), window_surface);
+    lvk::DeviceSurfaceDetails surface_details = lvk::query_surface_details(lvk_physical_device.vk(), window_surface);
     if (surface_details.capabilities.currentExtent.width == 0 || surface_details.capabilities.currentExtent.height == 0)
         return;
 
@@ -918,7 +877,25 @@ void Renderer::recreate_swapchain()
 
     destroy_swapchain();
 
-    create_swapchain(surface_details);
+    int draw_width = 0, draw_height = 0;
+    SDL_Vulkan_GetDrawableSize(sdl_window, &draw_width, &draw_height);
+
+    lvk_swapchain = lvk::swapchain_builder(lvk_device, lvk_physical_device)
+        .size((uint32_t)draw_width, (uint32_t)draw_height)
+        .image_usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+        .composite_alpha(VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR)
+        .clipped(VK_TRUE)
+        .graphics_family_index(graphics_queue_family_index)
+        .present_family_index(present_queue_family_index)
+        .build();
+    swapchain = lvk_swapchain.vk();
+    uint32_t image_count = 0;
+    swapchain_extent = lvk_physical_device.choose_swapchain_extent((uint32_t)draw_width, (uint32_t)draw_height);
+    vkGetSwapchainImagesKHR(device, swapchain, &image_count, nullptr);
+    swapchain_images.resize(image_count);
+    vkGetSwapchainImagesKHR(device, swapchain, &image_count, swapchain_images.data());
+    swapchain_image_format = lvk_physical_device.choose_swapchain_surface_format().format;
+
     create_image_views();
     create_render_pass();
     create_graphics_pipeline();
@@ -953,7 +930,7 @@ void Renderer::create_buffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemo
     VkMemoryAllocateInfo alloc_info{};
     alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     alloc_info.allocationSize = mem_info.size;
-    alloc_info.memoryTypeIndex = lvk::find_memory_type(mem_info.memoryTypeBits, properties, lvk_device.vk_physical_device());
+    alloc_info.memoryTypeIndex = lvk::find_memory_type(mem_info.memoryTypeBits, properties, lvk_physical_device.vk());
 
     if (vkAllocateMemory(device, &alloc_info, nullptr, memory) != VK_SUCCESS)
         throw std::runtime_error("Failed to allocate buffer memory");
@@ -1079,7 +1056,7 @@ void Renderer::create_image(uint32_t width, uint32_t height, uint32_t mip_levels
     VkMemoryAllocateInfo alloc_info{};
     alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     alloc_info.allocationSize = mrequirements.size;
-    alloc_info.memoryTypeIndex = lvk::find_memory_type(mrequirements.memoryTypeBits, properties, lvk_device.vk_physical_device());
+    alloc_info.memoryTypeIndex = lvk::find_memory_type(mrequirements.memoryTypeBits, properties, lvk_physical_device.vk());
 
     if (vkAllocateMemory(device, &alloc_info, nullptr, memory) != VK_SUCCESS)
         throw std::runtime_error("Failed to allocate image memory");
@@ -1147,7 +1124,7 @@ VkFormat Renderer::find_supported_format(const std::vector<VkFormat> & candidate
     for (VkFormat format : candidates) 
     {
         VkFormatProperties properties;
-        vkGetPhysicalDeviceFormatProperties(lvk_device.vk_physical_device(), format, &properties);
+        vkGetPhysicalDeviceFormatProperties(lvk_physical_device.vk(), format, &properties);
 
         if (tiling == VK_IMAGE_TILING_LINEAR && (properties.linearTilingFeatures & features) == features)
             return format;
@@ -1167,7 +1144,7 @@ VkFormat Renderer::find_depth_format()
 void Renderer::generate_mipmaps(VkImage image, VkFormat format, int32_t width, int32_t height, uint32_t mip_levels)
 {
     VkFormatProperties properties;
-    vkGetPhysicalDeviceFormatProperties(lvk_device.vk_physical_device(), format, &properties);
+    vkGetPhysicalDeviceFormatProperties(lvk_physical_device.vk(), format, &properties);
 
     if (!(properties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT))
         throw std::runtime_error("texture image format does not support linear blitting");

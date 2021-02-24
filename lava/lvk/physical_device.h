@@ -6,11 +6,19 @@
 
 namespace lvk
 {
+    struct surface_details
+    {
+        VkSurfaceCapabilitiesKHR capabilities;
+        std::vector<VkSurfaceFormatKHR> formats;
+        std::vector<VkPresentModeKHR> present_modes;
+    };
+
     class physical_device
     {
         friend class device_selector;
+        friend class swapchain_builder;
     public:
-        physical_device();
+        physical_device() = default;
         physical_device(VkPhysicalDevice physical_device, VkSurfaceKHR surface = VK_NULL_HANDLE);
 
         bool has_compatible_queue_family(VkQueueFlags flags) const;
@@ -26,19 +34,23 @@ namespace lvk
         bool supports_features(VkPhysicalDeviceFeatures requested_features) const;
         VkSampleCountFlagBits max_usable_sample_count() const;
 
+        VkExtent2D choose_swapchain_extent(uint32_t width, uint32_t height) const;
+        VkSurfaceFormatKHR choose_swapchain_surface_format() const;
+        VkPresentModeKHR choose_swapchain_present_mode() const;
+        uint32_t choose_swapchain_length() const;
+
         VkPhysicalDevice vk() const { return vk_physical_device; }
+        const surface_details query_surface_details() const;
     private:
-        VkPhysicalDevice vk_physical_device;
-        VkSurfaceKHR surface;
-        VkPhysicalDeviceProperties properties;
-        VkPhysicalDeviceMemoryProperties memory_properties;
-        VkPhysicalDeviceFeatures features;
-        VkDeviceSize local_memory_size;
-        uint32_t api_version;
+        VkPhysicalDevice vk_physical_device = VK_NULL_HANDLE;
+        VkSurfaceKHR vk_surface = VK_NULL_HANDLE;
+        VkPhysicalDeviceProperties properties = {};
+        VkPhysicalDeviceMemoryProperties memory_properties = {};
+        VkPhysicalDeviceFeatures features = {};
+        VkDeviceSize local_memory_size = 0;
+        uint32_t api_version = 0;
         std::vector<VkQueueFamilyProperties> queue_families;
         std::vector<VkExtensionProperties> extensions;
-        std::vector<VkSurfaceFormatKHR> surface_formats;
-        std::vector<VkPresentModeKHR> present_modes;
     };
 }
 

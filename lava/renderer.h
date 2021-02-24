@@ -9,6 +9,8 @@
 #include "typedefs.h"
 #include "lvk/instance.h"
 #include "lvk/device.h"
+#include "lvk/physical_device.h"
+#include "lvk/swapchain.h"
 
 struct SDL_Window;
 
@@ -56,11 +58,15 @@ namespace lava
         lvk::instance lvk_instance;
         VkInstance vulkan_instance;
         VkDebugUtilsMessengerEXT debug_messenger;
+        lvk::physical_device lvk_physical_device;
         lvk::device lvk_device;
         VkDevice device;
+        uint32_t graphics_queue_family_index;
+        uint32_t present_queue_family_index;
         VkQueue graphics_queue;
         VkQueue present_queue;
         VkSurfaceKHR window_surface;
+        lvk::swapchain lvk_swapchain;
         VkSwapchainKHR swapchain;
         VkFormat swapchain_image_format;
         VkExtent2D swapchain_extent;
@@ -110,7 +116,6 @@ namespace lava
 
         VkPhysicalDevice select_optimal_physical_device(const std::vector<VkPhysicalDevice> & physical_devices);
 
-        void create_swapchain(lvk::DeviceSurfaceDetails surface_details);
         void create_image_views();
         void create_render_pass();
         void create_descriptor_set_layout();

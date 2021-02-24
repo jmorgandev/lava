@@ -57,29 +57,12 @@ namespace lvk
         if (result != VK_SUCCESS)
             throw std::runtime_error("Failed to create logical device");
 
-        return device(vk_device, phys_device);
+        return device(vk_device);
     }
 
-    device::device() : vk_device(VK_NULL_HANDLE) {}
-    device::device(VkDevice device, const physical_device & physical_device)
-        : vk_device(device), phys_device(physical_device)
+    device::device(VkDevice device) : vk_device(device)
     {
 
-    }
-    device::device(device && rhs)
-    {
-        vk_device = rhs.vk_device;
-        phys_device = rhs.phys_device;
-        rhs.vk_device = VK_NULL_HANDLE;
-        rhs.phys_device = physical_device();
-    }
-    device & device::operator=(device && rhs)
-    {
-        vk_device = rhs.vk_device;
-        phys_device = rhs.phys_device;
-        rhs.vk_device = VK_NULL_HANDLE;
-        rhs.phys_device = physical_device();
-        return *this;
     }
     void device::destroy()
     {

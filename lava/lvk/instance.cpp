@@ -169,24 +169,6 @@ namespace lvk
         : vk_instance(instance), vk_debug_messenger(debug_messenger)
     {
     }
-    instance::instance(instance && rhs)
-    {
-        vk_instance = rhs.vk_instance;
-        vk_debug_messenger = rhs.vk_debug_messenger;
-        rhs.vk_instance = VK_NULL_HANDLE;
-        rhs.vk_debug_messenger = VK_NULL_HANDLE;
-    }
-    instance & instance::operator=(instance && rhs)
-    {
-        if (this != &rhs)
-        {
-            vk_instance = rhs.vk_instance;
-            vk_debug_messenger = rhs.vk_debug_messenger;
-            rhs.vk_instance = VK_NULL_HANDLE;
-            rhs.vk_debug_messenger = VK_NULL_HANDLE;
-        }
-        return *this;
-    }
     void instance::destroy()
     {
         if (vk_debug_messenger != VK_NULL_HANDLE)

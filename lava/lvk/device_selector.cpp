@@ -151,8 +151,10 @@ namespace lvk
                 return false;
         }
 
-        if (criteria.present_support &&
-            (candidate.surface_formats.empty() || candidate.present_modes.empty()))
+        auto surface_details = candidate.query_surface_details();
+
+        if (criteria.present_support && 
+            (surface_details.formats.empty() || surface_details.present_modes.empty()))
             return false;
 
         if (criteria.type_preference != (device_preference)candidate.properties.deviceType)

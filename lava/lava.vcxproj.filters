@@ -37,6 +37,9 @@
     <ClCompile Include="lvk\physical_device.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="lvk\swapchain.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="app.h">
@@ -61,5 +64,6 @@
       <Filter>Source Files\lvk</Filter>
     </ClInclude>
     <ClInclude Include="lvk\physical_device.h" />
+    <ClInclude Include="lvk\swapchain.h" />
   </ItemGroup>
 </Project>

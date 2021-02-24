@@ -1,10 +1,10 @@
 #include "physical_device.h"
+#include <algorithm>
 
 namespace lvk
 {
-    physical_device::physical_device() : vk_physical_device(VK_NULL_HANDLE), surface(VK_NULL_HANDLE) {}
     physical_device::physical_device(VkPhysicalDevice physical_device, VkSurfaceKHR surface)
-        : vk_physical_device(physical_device), surface(surface)
+        : vk_physical_device(physical_device), vk_surface(surface)
     {
         vkGetPhysicalDeviceProperties(physical_device, &properties);
         api_version = properties.apiVersion;
@@ -25,17 +25,6 @@ namespace lvk
         vkEnumerateDeviceExtensionProperties(physical_device, nullptr, &count, extensions.data());
 
         vkGetPhysicalDeviceFeatures(physical_device, &features);
-
-        if (surface != VK_NULL_HANDLE)
-        {
-            vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &count, nullptr);
-            surface_formats.resize(count);
-            vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &count, surface_formats.data());
-
-            vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface, &count, nullptr);
-            present_modes.resize(count);
-            vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface, &count, present_modes.data());
-        }
     }
     bool physical_device::has_compatible_queue_family(VkQueueFlags flags) const
     {
@@ -68,10 +57,10 @@ namespace lvk
     }
     VkBool32 physical_device::queue_family_supports_present(uint32_t index) const
     {
-        if (surface == VK_NULL_HANDLE)
+        if (vk_surface == VK_NULL_HANDLE)
             return false;
         VkBool32 support = false;
-        vkGetPhysicalDeviceSurfaceSupportKHR(vk_physical_device, index, surface, &support);
+        vkGetPhysicalDeviceSurfaceSupportKHR(vk_physical_device, index, vk_surface, &support);
         return support;
     }
     uint32_t physical_device::compatible_queue_family_index(VkQueueFlags flags) const
@@ -174,5 +163,65 @@ namespace lvk
         for (auto item : count_priorities)
             if (counts & item) return item;
         return VK_SAMPLE_COUNT_1_BIT;
+    }
+    VkExtent2D physical_device::choose_swapchain_extent(uint32_t width, uint32_t height) const
+    {
+        const surface_details surf_details = query_surface_details();
+        if (surf_details.capabilities.currentExtent.width != UINT32_MAX)
+            return surf_details.capabilities.currentExtent;
+        else
+        {
+            VkExtent2D extent = {};
+            extent.width = std::max(surf_details.capabilities.minImageExtent.width,
+                std::min(surf_details.capabilities.maxImageExtent.width, width));
+            extent.height = std::max(surf_details.capabilities.minImageExtent.height,
+                std::min(surf_details.capabilities.maxImageExtent.height, height));
+            return extent;
+        }
+    }
+    VkSurfaceFormatKHR physical_device::choose_swapchain_surface_format() const
+    {
+        const surface_details surf_details = query_surface_details();
+        for (const auto & surface_format : surf_details.formats)
+        {
+            if (surface_format.format == VK_FORMAT_B8G8R8A8_SRGB &&
+                surface_format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+                return surface_format;
+        }
+        return surf_details.formats[0];
+    }
+    VkPresentModeKHR physical_device::choose_swapchain_present_mode() const
+    {
+        const surface_details surf_details = query_surface_details();
+        for (const auto & mode : surf_details.present_modes)
+        {
+            if (mode == VK_PRESENT_MODE_MAILBOX_KHR)
+                return mode;
+        }
+        return VK_PRESENT_MODE_FIFO_KHR;
+    }
+    uint32_t physical_device::choose_swapchain_length() const
+    {
+        const surface_details surf_details = query_surface_details();
+        uint32_t length = surf_details.capabilities.minImageCount + 1;
+        if (surf_details.capabilities.maxImageCount > 0 && length > surf_details.capabilities.maxImageCount)
+            length = surf_details.capabilities.maxImageCount;
+        return length;
+    }
+    const surface_details physical_device::query_surface_details() const
+    {
+        surface_details details;
+        uint32_t count;
+        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk_physical_device, vk_surface, &details.capabilities);
+
+        vkGetPhysicalDeviceSurfaceFormatsKHR(vk_physical_device, vk_surface, &count, nullptr);
+        details.formats.resize(count);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(vk_physical_device, vk_surface, &count, details.formats.data());
+
+        vkGetPhysicalDeviceSurfacePresentModesKHR(vk_physical_device, vk_surface, &count, nullptr);
+        details.present_modes.resize(count);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(vk_physical_device, vk_surface, &count, details.present_modes.data());
+
+        return details;
     }
 }

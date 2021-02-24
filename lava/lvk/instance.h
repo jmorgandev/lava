@@ -1,6 +1,7 @@
 #ifndef LVK_INSTANCE_H
 #define LVK_INSTANCE_H
 #include <vector>
+#include <memory>
 #include <string>
 #include <cstdint>
 #include <vulkan/vulkan.h>
@@ -9,7 +10,26 @@ struct SDL_Window;
 
 namespace lvk
 {
-    class instance;
+    class device_selector;
+    class instance
+    {
+    public:
+        instance() = default;
+        instance(VkInstance instance, VkDebugUtilsMessengerEXT debug_messenger = VK_NULL_HANDLE);
+        void destroy();
+
+        device_selector select_physical_device();
+
+        //@TODO: Temp getters for underlying vulkan objects for now
+        VkInstance vk() { return vk_instance; }
+        VkDebugUtilsMessengerEXT get_debug_messenger() { return vk_debug_messenger; }
+
+        VkSurfaceKHR create_sdl_window_surface(SDL_Window * sdl_window);
+    private:
+        VkInstance vk_instance = VK_NULL_HANDLE;
+        VkDebugUtilsMessengerEXT vk_debug_messenger = VK_NULL_HANDLE;
+    };
+
     class instance_builder
     {
     public:
@@ -35,32 +55,6 @@ namespace lvk
         bool using_debug_messenger;
         std::vector<const char *> requested_extensions;
         std::vector<const char *> requested_layers;
-    };
-
-    class device_selector;
-    class instance
-    {
-    public:
-        instance() : vk_instance(VK_NULL_HANDLE), vk_debug_messenger(VK_NULL_HANDLE) {}
-        instance(VkInstance instance, VkDebugUtilsMessengerEXT debug_messenger = VK_NULL_HANDLE);
-        instance(instance && rhs);
-        instance & operator=(instance && rhs);
-        void destroy();
-
-        // Prevent non-move semantic construction/assignment
-        instance(const instance &) = delete;
-        instance & operator=(const instance &) = delete;
-
-        device_selector select_physical_device();
-
-        //@TODO: Temp getters for underlying vulkan objects for now
-        VkInstance vk() { return vk_instance; }
-        VkDebugUtilsMessengerEXT get_debug_messenger() { return vk_debug_messenger; }
-
-        VkSurfaceKHR create_sdl_window_surface(SDL_Window * sdl_window);
-    private:
-        VkInstance vk_instance;
-        VkDebugUtilsMessengerEXT vk_debug_messenger;
     };
 }
 #endif
