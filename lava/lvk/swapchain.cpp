@@ -73,22 +73,37 @@ namespace lvk
         swapchain_info.presentMode = swapchain_present_mode;
         swapchain_info.oldSwapchain = VK_NULL_HANDLE;
 
-        VkSwapchainKHR vk_swapchain = VK_NULL_HANDLE;
-        VkResult result = vkCreateSwapchainKHR(dev.vk(), &swapchain_info, nullptr, &vk_swapchain);
+        return swapchain(swapchain_info, dev.vk());
+    }
 
+    swapchain::swapchain(VkSwapchainCreateInfoKHR create_info, VkDevice device)
+        : vk_device(device), info(create_info)
+    {
+        VkResult result = vkCreateSwapchainKHR(vk_device, &create_info, nullptr, &vk_swapchain);
         if (result != VK_SUCCESS)
             throw std::runtime_error("Failed to create swapchain");
 
-        return swapchain(vk_swapchain, dev.vk());
-    }
-
-    swapchain::swapchain(VkSwapchainKHR swapchain, VkDevice device)
-        : vk_swapchain(swapchain), vk_device(device)
-    {
-
+        uint32_t len = 0;
+        vkGetSwapchainImagesKHR(vk_device, vk_swapchain, &len, nullptr);
+        images.resize(len);
+        vkGetSwapchainImagesKHR(vk_device, vk_swapchain, &len, images.data());
+        image_views.resize(len);
+        for (int i = 0; i < len; i++)
+        {
+            image_views[i] = image_view_builder(vk_device, images[i], info.imageFormat)
+                .view_type(VK_IMAGE_VIEW_TYPE_2D)
+                .aspect_flags(VK_IMAGE_ASPECT_COLOR_BIT)
+                .mip_levels(1)
+                .base_mip_level(0)
+                .base_array_layer(0)
+                .layer_count(1)
+                .build();
+        }
     }
     void swapchain::destroy()
     {
+        for (int i = 0; i < image_views.size(); i++)
+            image_views[i].destroy();
         vkDestroySwapchainKHR(vk_device, vk_swapchain, nullptr);
     }
 }

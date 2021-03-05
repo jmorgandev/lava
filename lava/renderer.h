@@ -68,10 +68,6 @@ namespace lava
         VkSurfaceKHR window_surface;
         lvk::swapchain lvk_swapchain;
         VkSwapchainKHR swapchain;
-        VkFormat swapchain_image_format;
-        VkExtent2D swapchain_extent;
-        std::vector<VkImage> swapchain_images;
-        std::vector<VkImageView> swapchain_image_views;
         std::vector<VkFramebuffer> swapchain_framebuffers;
         VkRenderPass render_pass;
         VkDescriptorSetLayout descriptor_set_layout;

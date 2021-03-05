@@ -60,7 +60,8 @@ namespace lvk
         return device(vk_device);
     }
 
-    device::device(VkDevice device) : vk_device(device)
+    device::device(VkDevice device, std::vector<queue> queues) 
+        : vk_device(device), active_queues(queues)
     {
 
     }

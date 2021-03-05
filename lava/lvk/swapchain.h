@@ -1,7 +1,9 @@
 #ifndef LVK_SWAPCHAIN_H
 #define LVK_SWAPCHAIN_H
 
+#include "image_view.h"
 #include <vulkan/vulkan.h>
+#include <vector>
 
 namespace lvk
 {
@@ -12,14 +14,23 @@ namespace lvk
     {
     public:
         swapchain() = default;
-        swapchain(VkSwapchainKHR swapchain, VkDevice device);
+        swapchain(VkSwapchainCreateInfoKHR create_info, VkDevice device);
         void destroy();
         ~swapchain(){}
+
+        uint32_t size() const { return (uint32_t)images.size(); }
+        VkFormat image_format() const { return info.imageFormat; }
+        VkExtent2D image_extent() const { return info.imageExtent; }
+
+        const std::vector<image_view> & get_image_views() { return image_views; }
 
         VkSwapchainKHR vk() const { return vk_swapchain; }
     private:
         VkSwapchainKHR vk_swapchain = VK_NULL_HANDLE;
-        VkDevice vk_device = VK_NULL_HANDLE;
+        VkDevice vk_device;
+        VkSwapchainCreateInfoKHR info;
+        std::vector<VkImage> images;
+        std::vector<image_view> image_views;
     };
 
     class swapchain_builder

@@ -34,11 +34,14 @@
     <ClCompile Include="lvk\device.cpp">
       <Filter>Source Files\lvk</Filter>
     </ClCompile>
-    <ClCompile Include="lvk\physical_device.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="lvk\image_view.cpp">
+      <Filter>Source Files\lvk</Filter>
     </ClCompile>
     <ClCompile Include="lvk\swapchain.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\lvk</Filter>
+    </ClCompile>
+    <ClCompile Include="lvk\physical_device.cpp">
+      <Filter>Source Files\lvk</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -63,7 +66,17 @@
     <ClInclude Include="lvk\device.h">
       <Filter>Source Files\lvk</Filter>
     </ClInclude>
-    <ClInclude Include="lvk\physical_device.h" />
-    <ClInclude Include="lvk\swapchain.h" />
+    <ClInclude Include="lvk\queue.h">
+      <Filter>Source Files\lvk</Filter>
+    </ClInclude>
+    <ClInclude Include="lvk\image_view.h">
+      <Filter>Source Files\lvk</Filter>
+    </ClInclude>
+    <ClInclude Include="lvk\physical_device.h">
+      <Filter>Source Files\lvk</Filter>
+    </ClInclude>
+    <ClInclude Include="lvk\swapchain.h">
+      <Filter>Source Files\lvk</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

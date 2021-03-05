@@ -173,17 +173,8 @@ Renderer::Renderer(App * app)
         .graphics_family_index(graphics_queue_family_index)
         .present_family_index(present_queue_family_index)
         .build();
-    swapchain = lvk_swapchain.vk();
-    uint32_t image_count = 0;
-    swapchain_extent = lvk_physical_device.choose_swapchain_extent((uint32_t)draw_width, (uint32_t)draw_height);
-    vkGetSwapchainImagesKHR(device, swapchain, &image_count, nullptr);
-    swapchain_images.resize(image_count);
-    vkGetSwapchainImagesKHR(device, swapchain, &image_count, swapchain_images.data());
-    swapchain_image_format = lvk_physical_device.choose_swapchain_surface_format().format;
-    
+    swapchain = lvk_swapchain.vk();    
 
-    //lvk::DeviceSurfaceDetails swapchain_support = lvk::query_surface_details(lvk_device.vk_physical_device(), window_surface);
-    create_image_views();
     create_descriptor_set_layout();
     create_render_pass();
     create_graphics_pipeline();
@@ -229,19 +220,10 @@ VkPhysicalDevice Renderer::select_optimal_physical_device(const std::vector<VkPh
     return VK_NULL_HANDLE;
 }
 
-void Renderer::create_image_views()
-{
-    swapchain_image_views.resize(swapchain_images.size());
-    for (int i = 0; i < swapchain_images.size(); i++)
-    {
-        swapchain_image_views[i] = create_image_view(swapchain_images[i], swapchain_image_format, VK_IMAGE_ASPECT_COLOR_BIT, 1);
-    }
-}
-
 void Renderer::create_render_pass()
 {
     VkAttachmentDescription color_attachment = {};
-    color_attachment.format = swapchain_image_format;
+    color_attachment.format = lvk_swapchain.image_format();
     color_attachment.samples = msaa_samples;
     color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -261,7 +243,7 @@ void Renderer::create_render_pass()
     depth_attachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
     VkAttachmentDescription color_attachment_resolve{};
-    color_attachment_resolve.format = swapchain_image_format;
+    color_attachment_resolve.format = lvk_swapchain.image_format();
     color_attachment_resolve.samples = VK_SAMPLE_COUNT_1_BIT;
     color_attachment_resolve.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     color_attachment_resolve.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -380,14 +362,14 @@ void Renderer::create_graphics_pipeline()
     VkViewport viewport = {};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
-    viewport.width = (float)swapchain_extent.width;
-    viewport.height = (float)swapchain_extent.height;
+    viewport.width = (float)lvk_swapchain.image_extent().width;
+    viewport.height = (float)lvk_swapchain.image_extent().height;
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
 
     VkRect2D scissor = {};
     scissor.offset = { 0, 0 };
-    scissor.extent = swapchain_extent;
+    scissor.extent = lvk_swapchain.image_extent();
 
     VkPipelineViewportStateCreateInfo viewport_state = {};
     viewport_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -480,20 +462,20 @@ void Renderer::create_graphics_pipeline()
 
 void Renderer::create_framebuffers()
 {
-    swapchain_framebuffers.resize(swapchain_image_views.size());
-    for (int i = 0; i < swapchain_image_views.size(); i++)
+    swapchain_framebuffers.resize(lvk_swapchain.get_image_views().size());
+    for (int i = 0; i < lvk_swapchain.get_image_views().size(); i++)
     {
         // we only need one depth image instead of the swapchain length because only a single subpass is
         // running at the same time due to semaphores
-        std::array<VkImageView, 3> attachments = { color_image_view, depth_image_view, swapchain_image_views[i] };
+        std::array<VkImageView, 3> attachments = { color_image_view, depth_image_view, lvk_swapchain.get_image_views()[i].vk() };
 
         VkFramebufferCreateInfo framebuffer_info = {};
         framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         framebuffer_info.renderPass = render_pass;
         framebuffer_info.attachmentCount = (uint32_t)attachments.size();
         framebuffer_info.pAttachments = attachments.data();
-        framebuffer_info.width = swapchain_extent.width;
-        framebuffer_info.height = swapchain_extent.height;
+        framebuffer_info.width = lvk_swapchain.image_extent().width;
+        framebuffer_info.height = lvk_swapchain.image_extent().height;
         framebuffer_info.layers = 1;
 
         if (vkCreateFramebuffer(device, &framebuffer_info, nullptr, &swapchain_framebuffers[i]) != VK_SUCCESS)
@@ -515,8 +497,8 @@ void Renderer::create_command_pool()
 
 void Renderer::create_color_resources()
 {
-    VkFormat color_format = swapchain_image_format;
-    create_image(swapchain_extent.width, swapchain_extent.height, 1, msaa_samples, color_format, VK_IMAGE_TILING_OPTIMAL,
+    VkFormat color_format = lvk_swapchain.image_format();
+    create_image(lvk_swapchain.image_extent().width, lvk_swapchain.image_extent().height, 1, msaa_samples, color_format, VK_IMAGE_TILING_OPTIMAL,
                  VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &color_image, &color_image_memory);
     color_image_view = create_image_view(color_image, color_format, VK_IMAGE_ASPECT_COLOR_BIT, 1);
@@ -526,7 +508,7 @@ void Renderer::create_depth_resources()
 {
     VkFormat depth_format = find_depth_format();
 
-    create_image(swapchain_extent.width, swapchain_extent.height, 1, msaa_samples, depth_format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+    create_image(lvk_swapchain.image_extent().width, lvk_swapchain.image_extent().height, 1, msaa_samples, depth_format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &depth_image, &depth_image_memory);
     depth_image_view = create_image_view(depth_image, depth_format, VK_IMAGE_ASPECT_DEPTH_BIT, 1);
 
@@ -685,10 +667,10 @@ void Renderer::create_index_buffer()
 void Renderer::create_uniform_buffers()
 {
     VkDeviceSize buffer_size = sizeof(UniformBufferObject);
-    uniform_buffers.resize(swapchain_images.size());
-    uniform_buffers_memory.resize(swapchain_images.size());
+    uniform_buffers.resize(lvk_swapchain.size());
+    uniform_buffers_memory.resize(lvk_swapchain.size());
 
-    for (size_t i = 0; i < swapchain_images.size(); i++)
+    for (size_t i = 0; i < lvk_swapchain.size(); i++)
     {
         create_buffer(buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
             &uniform_buffers[i], &uniform_buffers_memory[i]);
@@ -699,15 +681,15 @@ void Renderer::create_descriptor_pool()
 {
     std::array<VkDescriptorPoolSize, 2> sizes{};
     sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    sizes[0].descriptorCount = (uint32_t)swapchain_images.size();
+    sizes[0].descriptorCount = lvk_swapchain.size();
     sizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    sizes[1].descriptorCount = (uint32_t)swapchain_images.size();
+    sizes[1].descriptorCount = lvk_swapchain.size();
 
     VkDescriptorPoolCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     info.poolSizeCount = (uint32_t)sizes.size();
     info.pPoolSizes = sizes.data();
-    info.maxSets = (uint32_t)swapchain_images.size();
+    info.maxSets = lvk_swapchain.size();
 
     if (vkCreateDescriptorPool(device, &info, nullptr, &descriptor_pool) != VK_SUCCESS)
         throw std::runtime_error("Failed to create descriptor pool");
@@ -715,18 +697,18 @@ void Renderer::create_descriptor_pool()
 
 void Renderer::create_descriptor_sets()
 {
-    std::vector<VkDescriptorSetLayout> layouts(swapchain_images.size(), descriptor_set_layout);
+    std::vector<VkDescriptorSetLayout> layouts(lvk_swapchain.size(), descriptor_set_layout);
     VkDescriptorSetAllocateInfo alloc_info{};
     alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     alloc_info.descriptorPool = descriptor_pool;
-    alloc_info.descriptorSetCount = (uint32_t)swapchain_images.size();
+    alloc_info.descriptorSetCount = lvk_swapchain.size();
     alloc_info.pSetLayouts = layouts.data();
 
-    descriptor_sets.resize(swapchain_images.size());
+    descriptor_sets.resize(lvk_swapchain.size());
     if (vkAllocateDescriptorSets(device, &alloc_info, descriptor_sets.data()) != VK_SUCCESS)
         throw std::runtime_error("Failed to allocate descriptor sets");
 
-    for (size_t i = 0; i < swapchain_images.size(); i++)
+    for (size_t i = 0; i < lvk_swapchain.size(); i++)
     {
         VkDescriptorBufferInfo info{};
         info.buffer = uniform_buffers[i];
@@ -787,7 +769,7 @@ void Renderer::create_command_buffers()
         render_pass_info.renderPass = render_pass;
         render_pass_info.framebuffer = swapchain_framebuffers[i];
         render_pass_info.renderArea.offset = { 0, 0 };
-        render_pass_info.renderArea.extent = swapchain_extent;
+        render_pass_info.renderArea.extent = lvk_swapchain.image_extent();
 
         std::array<VkClearValue, 3> clear_values{};
         clear_values[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
@@ -819,7 +801,7 @@ void Renderer::create_sync_objects()
     image_available_semaphores.resize(LAVA_MAX_FRAMES_IN_FLIGHT);
     render_finished_semaphores.resize(LAVA_MAX_FRAMES_IN_FLIGHT);
     inflight_fences.resize(LAVA_MAX_FRAMES_IN_FLIGHT);
-    inflight_images.resize(swapchain_images.size(), VK_NULL_HANDLE);
+    inflight_images.resize(lvk_swapchain.size(), VK_NULL_HANDLE);
 
     VkSemaphoreCreateInfo semaphore_info = {};
     semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -853,12 +835,10 @@ void Renderer::destroy_swapchain()
     vkDestroyPipeline(device, graphics_pipeline, nullptr);
     vkDestroyPipelineLayout(device, pipeline_layout, nullptr);
     vkDestroyRenderPass(device, render_pass, nullptr);
-    for (const auto image_view : swapchain_image_views)
-        vkDestroyImageView(device, image_view, nullptr);
     
     lvk_swapchain.destroy();
 
-    for (size_t i = 0; i < swapchain_images.size(); i++)
+    for (size_t i = 0; i < lvk_swapchain.size(); i++)
     {
         vkDestroyBuffer(device, uniform_buffers[i], nullptr);
         vkFreeMemory(device, uniform_buffers_memory[i], nullptr);
@@ -889,14 +869,7 @@ void Renderer::recreate_swapchain()
         .present_family_index(present_queue_family_index)
         .build();
     swapchain = lvk_swapchain.vk();
-    uint32_t image_count = 0;
-    swapchain_extent = lvk_physical_device.choose_swapchain_extent((uint32_t)draw_width, (uint32_t)draw_height);
-    vkGetSwapchainImagesKHR(device, swapchain, &image_count, nullptr);
-    swapchain_images.resize(image_count);
-    vkGetSwapchainImagesKHR(device, swapchain, &image_count, swapchain_images.data());
-    swapchain_image_format = lvk_physical_device.choose_swapchain_surface_format().format;
 
-    create_image_views();
     create_render_pass();
     create_graphics_pipeline();
     create_color_resources();
@@ -1292,7 +1265,7 @@ void Renderer::update_uniform_buffer(uint32_t current_image)
     UniformBufferObject ubo{};
     ubo.transform = glm::rotate(glm::mat4(1.0f), time * glm::radians(20.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.proj = glm::perspective(glm::radians(45.0f), (float)swapchain_extent.width / (float)swapchain_extent.height, 0.1f, 10.0f);
+    ubo.proj = glm::perspective(glm::radians(45.0f), (float)lvk_swapchain.image_extent().width / (float)lvk_swapchain.image_extent().height, 0.1f, 10.0f);
     ubo.proj[1][1] *= -1.0f;
     ubo.hue_shift = time * glm::radians(10.0f);
 

@@ -124,6 +124,7 @@
     <ClCompile Include="lvk.cpp" />
     <ClCompile Include="lvk\device.cpp" />
     <ClCompile Include="lvk\device_selector.cpp" />
+    <ClCompile Include="lvk\image_view.cpp" />
     <ClCompile Include="lvk\instance.cpp" />
     <ClCompile Include="lvk\physical_device.cpp" />
     <ClCompile Include="lvk\swapchain.cpp" />
@@ -136,8 +137,10 @@
     <ClInclude Include="lvk.h" />
     <ClInclude Include="lvk\device.h" />
     <ClInclude Include="lvk\device_selector.h" />
+    <ClInclude Include="lvk\image_view.h" />
     <ClInclude Include="lvk\instance.h" />
     <ClInclude Include="lvk\physical_device.h" />
+    <ClInclude Include="lvk\queue.h" />
     <ClInclude Include="lvk\swapchain.h" />
     <ClInclude Include="renderer.h" />
     <ClInclude Include="typedefs.h" />
