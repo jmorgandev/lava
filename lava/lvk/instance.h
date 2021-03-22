@@ -6,12 +6,14 @@
 #include <cstdint>
 #include <vulkan/vulkan.h>
 
+#include "object.h"
+
 struct SDL_Window;
 
 namespace lvk
 {
     class device_selector;
-    class instance
+    class instance : public object<VkInstance>
     {
     public:
         instance() = default;
@@ -20,13 +22,10 @@ namespace lvk
 
         device_selector select_physical_device();
 
-        //@TODO: Temp getters for underlying vulkan objects for now
-        VkInstance vk() { return vk_instance; }
         VkDebugUtilsMessengerEXT get_debug_messenger() { return vk_debug_messenger; }
 
         VkSurfaceKHR create_sdl_window_surface(SDL_Window * sdl_window);
     private:
-        VkInstance vk_instance = VK_NULL_HANDLE;
         VkDebugUtilsMessengerEXT vk_debug_messenger = VK_NULL_HANDLE;
     };
 

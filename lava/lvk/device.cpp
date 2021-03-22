@@ -61,13 +61,13 @@ namespace lvk
     }
 
     device::device(VkDevice device, std::vector<queue> queues) 
-        : vk_device(device), active_queues(queues)
+        : active_queues(queues)
     {
-
+        vk_object = device;
     }
     void device::destroy()
     {
-        vkDestroyDevice(vk_device, nullptr);
-        vk_device = VK_NULL_HANDLE;
+        vkDestroyDevice(vk_object, nullptr);
+        vk_object = VK_NULL_HANDLE;
     }
 }

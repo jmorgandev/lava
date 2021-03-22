@@ -4,8 +4,9 @@
 namespace lvk
 {
     physical_device::physical_device(VkPhysicalDevice physical_device, VkSurfaceKHR surface)
-        : vk_physical_device(physical_device), vk_surface(surface)
+        : vk_surface(surface)
     {
+        vk_object = physical_device;
         vkGetPhysicalDeviceProperties(physical_device, &properties);
         api_version = properties.apiVersion;
         vkGetPhysicalDeviceMemoryProperties(physical_device, &memory_properties);
@@ -60,7 +61,7 @@ namespace lvk
         if (vk_surface == VK_NULL_HANDLE)
             return false;
         VkBool32 support = false;
-        vkGetPhysicalDeviceSurfaceSupportKHR(vk_physical_device, index, vk_surface, &support);
+        vkGetPhysicalDeviceSurfaceSupportKHR(vk_object, index, vk_surface, &support);
         return support;
     }
     uint32_t physical_device::compatible_queue_family_index(VkQueueFlags flags) const
@@ -212,15 +213,15 @@ namespace lvk
     {
         surface_details details;
         uint32_t count;
-        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk_physical_device, vk_surface, &details.capabilities);
+        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk_object, vk_surface, &details.capabilities);
 
-        vkGetPhysicalDeviceSurfaceFormatsKHR(vk_physical_device, vk_surface, &count, nullptr);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(vk_object, vk_surface, &count, nullptr);
         details.formats.resize(count);
-        vkGetPhysicalDeviceSurfaceFormatsKHR(vk_physical_device, vk_surface, &count, details.formats.data());
+        vkGetPhysicalDeviceSurfaceFormatsKHR(vk_object, vk_surface, &count, details.formats.data());
 
-        vkGetPhysicalDeviceSurfacePresentModesKHR(vk_physical_device, vk_surface, &count, nullptr);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(vk_object, vk_surface, &count, nullptr);
         details.present_modes.resize(count);
-        vkGetPhysicalDeviceSurfacePresentModesKHR(vk_physical_device, vk_surface, &count, details.present_modes.data());
+        vkGetPhysicalDeviceSurfacePresentModesKHR(vk_object, vk_surface, &count, details.present_modes.data());
 
         return details;
     }

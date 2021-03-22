@@ -49,13 +49,13 @@ namespace lvk
     image_view::image_view(VkImageViewCreateInfo create_info, VkDevice device)
         : vk_device(device), info(create_info)
     {
-        VkResult result = vkCreateImageView(vk_device, &info, nullptr, &vk_image_view);
+        VkResult result = vkCreateImageView(vk_device, &info, nullptr, &vk_object);
         if (result != VK_SUCCESS)
             throw std::runtime_error("Failed to create image view");
     }
     void image_view::destroy()
     {
-        vkDestroyImageView(vk_device, vk_image_view, nullptr);
-        vk_image_view = VK_NULL_HANDLE;
+        vkDestroyImageView(vk_device, vk_object, nullptr);
+        vk_object = VK_NULL_HANDLE;
     }
 }

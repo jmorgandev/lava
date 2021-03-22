@@ -166,28 +166,29 @@ namespace lvk
     }
 
     instance::instance(VkInstance instance, VkDebugUtilsMessengerEXT debug_messenger)
-        : vk_instance(instance), vk_debug_messenger(debug_messenger)
+        : vk_debug_messenger(debug_messenger)
     {
+        vk_object = instance;
     }
     void instance::destroy()
     {
         if (vk_debug_messenger != VK_NULL_HANDLE)
         {
-            auto destroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(vk_instance, "vkDestroyDebugUtilsMessengerEXT");
-            destroyDebugUtilsMessengerEXT(vk_instance, vk_debug_messenger, nullptr);
+            auto destroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(vk_object, "vkDestroyDebugUtilsMessengerEXT");
+            destroyDebugUtilsMessengerEXT(vk_object, vk_debug_messenger, nullptr);
         }
 
-        vkDestroyInstance(vk_instance, nullptr);
+        vkDestroyInstance(vk_object, nullptr);
     }
     VkSurfaceKHR instance::create_sdl_window_surface(SDL_Window * sdl_window)
     {
         VkSurfaceKHR surface;
-        if (!SDL_Vulkan_CreateSurface(sdl_window, vk_instance, &surface))
+        if (!SDL_Vulkan_CreateSurface(sdl_window, vk_object, &surface))
             throw std::runtime_error("Failed to create SDL window surface");
         return surface;
     }
     device_selector instance::select_physical_device()
     {
-        return device_selector(vk_instance);
+        return device_selector(vk_object);
     }
 }

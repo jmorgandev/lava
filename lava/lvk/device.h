@@ -5,10 +5,11 @@
 #include <vector>
 #include "physical_device.h"
 #include "queue.h"
+#include "object.h"
 
 namespace lvk
 {
-    class device
+    class device : public object<VkDevice>
     {
     public:
         device(VkDevice device = VK_NULL_HANDLE, std::vector<queue> queues = {});
@@ -16,9 +17,7 @@ namespace lvk
         ~device() {}
 
         const std::vector<queue> & queues() { return active_queues; }
-        VkDevice vk() const { return vk_device; }
     private:
-        VkDevice vk_device;
         std::vector<queue> active_queues;
     };
 

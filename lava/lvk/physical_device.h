@@ -4,6 +4,8 @@
 #include <vulkan/vulkan.h>
 #include <vector>
 
+#include "object.h"
+
 namespace lvk
 {
     struct surface_details
@@ -13,7 +15,7 @@ namespace lvk
         std::vector<VkPresentModeKHR> present_modes;
     };
 
-    class physical_device
+    class physical_device : public object<VkPhysicalDevice>
     {
         friend class device_selector;
         friend class swapchain_builder;
@@ -39,10 +41,8 @@ namespace lvk
         VkPresentModeKHR choose_swapchain_present_mode() const;
         uint32_t choose_swapchain_length() const;
 
-        VkPhysicalDevice vk() const { return vk_physical_device; }
         const surface_details query_surface_details() const;
     private:
-        VkPhysicalDevice vk_physical_device = VK_NULL_HANDLE;
         VkSurfaceKHR vk_surface = VK_NULL_HANDLE;
         VkPhysicalDeviceProperties properties = {};
         VkPhysicalDeviceMemoryProperties memory_properties = {};

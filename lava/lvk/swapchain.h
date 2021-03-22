@@ -5,12 +5,14 @@
 #include <vulkan/vulkan.h>
 #include <vector>
 
+#include "object.h"
+
 namespace lvk
 {
     class device;
     class physical_device;
 
-    class swapchain
+    class swapchain : public object<VkSwapchainKHR>
     {
     public:
         swapchain() = default;
@@ -23,10 +25,7 @@ namespace lvk
         VkExtent2D image_extent() const { return info.imageExtent; }
 
         const std::vector<image_view> & get_image_views() { return image_views; }
-
-        VkSwapchainKHR vk() const { return vk_swapchain; }
     private:
-        VkSwapchainKHR vk_swapchain = VK_NULL_HANDLE;
         VkDevice vk_device;
         VkSwapchainCreateInfoKHR info;
         std::vector<VkImage> images;

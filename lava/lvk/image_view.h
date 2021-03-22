@@ -2,22 +2,20 @@
 #define LVK_IMAGE_VIEW_H
 
 #include <vulkan/vulkan.h>
+#include "object.h"
 
 namespace lvk
 {
     class device;
 
-    class image_view
+    class image_view : public object<VkImageView>
     {
     public:
         image_view() = default;
         image_view(VkImageViewCreateInfo create_info, VkDevice device);
     
         void destroy();
-
-        VkImageView vk() const { return vk_image_view; }
     private:
-        VkImageView vk_image_view = VK_NULL_HANDLE;
         VkDevice vk_device = VK_NULL_HANDLE;
         VkImageViewCreateInfo info;
     };

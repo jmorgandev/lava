@@ -79,14 +79,14 @@ namespace lvk
     swapchain::swapchain(VkSwapchainCreateInfoKHR create_info, VkDevice device)
         : vk_device(device), info(create_info)
     {
-        VkResult result = vkCreateSwapchainKHR(vk_device, &create_info, nullptr, &vk_swapchain);
+        VkResult result = vkCreateSwapchainKHR(vk_device, &create_info, nullptr, &vk_object);
         if (result != VK_SUCCESS)
             throw std::runtime_error("Failed to create swapchain");
 
         uint32_t len = 0;
-        vkGetSwapchainImagesKHR(vk_device, vk_swapchain, &len, nullptr);
+        vkGetSwapchainImagesKHR(vk_device, vk_object, &len, nullptr);
         images.resize(len);
-        vkGetSwapchainImagesKHR(vk_device, vk_swapchain, &len, images.data());
+        vkGetSwapchainImagesKHR(vk_device, vk_object, &len, images.data());
         image_views.resize(len);
         for (int i = 0; i < len; i++)
         {
@@ -104,6 +104,6 @@ namespace lvk
     {
         for (int i = 0; i < image_views.size(); i++)
             image_views[i].destroy();
-        vkDestroySwapchainKHR(vk_device, vk_swapchain, nullptr);
+        vkDestroySwapchainKHR(vk_device, vk_object, nullptr);
     }
 }

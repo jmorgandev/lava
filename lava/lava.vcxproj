@@ -141,6 +141,7 @@
     <ClInclude Include="lvk\device_selector.h" />
     <ClInclude Include="lvk\image_view.h" />
     <ClInclude Include="lvk\instance.h" />
+    <ClInclude Include="lvk\object.h" />
     <ClInclude Include="lvk\physical_device.h" />
     <ClInclude Include="lvk\queue.h" />
     <ClInclude Include="lvk\swapchain.h" />

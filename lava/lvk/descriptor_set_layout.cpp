@@ -45,7 +45,7 @@ namespace lvk
 
     descriptor_set_layout::descriptor_set_layout(VkDescriptorSetLayoutCreateInfo create_info, VkDevice device)
     {
-        VkResult result = vkCreateDescriptorSetLayout(device, &create_info, nullptr, &vk_descriptor_set_layout);
+        VkResult result = vkCreateDescriptorSetLayout(device, &create_info, nullptr, &vk_object);
         if (result != VK_SUCCESS)
             throw std::runtime_error("Could not create descriptor set layout");
     }

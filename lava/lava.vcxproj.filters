@@ -84,5 +84,8 @@
     <ClInclude Include="lvk\descriptor_set_layout.h">
       <Filter>Source Files\lvk</Filter>
     </ClInclude>
+    <ClInclude Include="lvk\object.h">
+      <Filter>Source Files\lvk</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

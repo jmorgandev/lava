@@ -3,20 +3,17 @@
 
 #include <vulkan/vulkan.h>
 #include <vector>
+#include "object.h"
 
 namespace lvk
 {
     class device;
 
-    class descriptor_set_layout
+    class descriptor_set_layout : public object<VkDescriptorSetLayout>
     {
     public:
         descriptor_set_layout() = default;
         descriptor_set_layout(VkDescriptorSetLayoutCreateInfo create_info, VkDevice device);
-
-        VkDescriptorSetLayout vk() { return vk_descriptor_set_layout; }
-    private:
-        VkDescriptorSetLayout vk_descriptor_set_layout = VK_NULL_HANDLE;
     };
 
     class descriptor_set_layout_builder
