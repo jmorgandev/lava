@@ -122,6 +122,7 @@
   <ItemGroup>
     <ClCompile Include="app.cpp" />
     <ClCompile Include="lvk.cpp" />
+    <ClCompile Include="lvk\descriptor_set_layout.cpp" />
     <ClCompile Include="lvk\device.cpp" />
     <ClCompile Include="lvk\device_selector.cpp" />
     <ClCompile Include="lvk\image_view.cpp" />
@@ -135,6 +136,7 @@
   <ItemGroup>
     <ClInclude Include="app.h" />
     <ClInclude Include="lvk.h" />
+    <ClInclude Include="lvk\descriptor_set_layout.h" />
     <ClInclude Include="lvk\device.h" />
     <ClInclude Include="lvk\device_selector.h" />
     <ClInclude Include="lvk\image_view.h" />

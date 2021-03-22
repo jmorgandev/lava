@@ -11,6 +11,7 @@
 #include "lvk/device.h"
 #include "lvk/physical_device.h"
 #include "lvk/swapchain.h"
+#include "lvk/descriptor_set_layout.h"
 
 struct SDL_Window;
 
@@ -70,6 +71,7 @@ namespace lava
         VkSwapchainKHR swapchain;
         std::vector<VkFramebuffer> swapchain_framebuffers;
         VkRenderPass render_pass;
+        lvk::descriptor_set_layout lvk_descriptor_set_layout;
         VkDescriptorSetLayout descriptor_set_layout;
         VkPipelineLayout pipeline_layout;
         VkPipeline graphics_pipeline;

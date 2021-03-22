@@ -9,6 +9,7 @@
 #include "lvk/instance.h"
 #include "lvk/device_selector.h"
 #include "lvk/physical_device.h"
+#include "lvk/descriptor_set_layout.h"
 
 #include <fstream>
 #include <unordered_map>
@@ -175,7 +176,12 @@ Renderer::Renderer(App * app)
         .build();
     swapchain = lvk_swapchain.vk();    
 
-    create_descriptor_set_layout();
+    lvk_descriptor_set_layout = lvk::descriptor_set_layout_builder()
+        .uniform_buffer(0, 1, VK_SHADER_STAGE_VERTEX_BIT)
+        .combined_image_sampler(1, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
+        .build(lvk_device);
+    descriptor_set_layout = lvk_descriptor_set_layout.vk();
+
     create_render_pass();
     create_graphics_pipeline();
     create_command_pool();
@@ -293,33 +299,6 @@ void Renderer::create_render_pass()
 
     if (vkCreateRenderPass(device, &render_pass_info, nullptr, &render_pass) != VK_SUCCESS)
         throw std::runtime_error("Failed to create render pass");
-}
-
-void Renderer::create_descriptor_set_layout()
-{
-    VkDescriptorSetLayoutBinding ubo_layout_binding{};
-    ubo_layout_binding.binding = 0;
-    ubo_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    ubo_layout_binding.descriptorCount = 1;
-    ubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    ubo_layout_binding.pImmutableSamplers = nullptr;
-
-    VkDescriptorSetLayoutBinding sampler_layout_binding{};
-    sampler_layout_binding.binding = 1;
-    sampler_layout_binding.descriptorCount = 1;
-    sampler_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    sampler_layout_binding.pImmutableSamplers = nullptr;
-    sampler_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-    std::array<VkDescriptorSetLayoutBinding, 2> bindings = { ubo_layout_binding, sampler_layout_binding };
-
-    VkDescriptorSetLayoutCreateInfo info{};
-    info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    info.bindingCount = (uint32_t)bindings.size();
-    info.pBindings = bindings.data();
-
-    if (vkCreateDescriptorSetLayout(device, &info, nullptr, &descriptor_set_layout) != VK_SUCCESS)
-        throw std::runtime_error("Failed to create descriptor set layout");
 }
 
 void Renderer::create_graphics_pipeline()

@@ -43,6 +43,9 @@
     <ClCompile Include="lvk\physical_device.cpp">
       <Filter>Source Files\lvk</Filter>
     </ClCompile>
+    <ClCompile Include="lvk\descriptor_set_layout.cpp">
+      <Filter>Source Files\lvk</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="app.h">
@@ -76,6 +79,9 @@
       <Filter>Source Files\lvk</Filter>
     </ClInclude>
     <ClInclude Include="lvk\swapchain.h">
+      <Filter>Source Files\lvk</Filter>
+    </ClInclude>
+    <ClInclude Include="lvk\descriptor_set_layout.h">
       <Filter>Source Files\lvk</Filter>
     </ClInclude>
   </ItemGroup>
