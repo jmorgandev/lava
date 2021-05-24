@@ -13,6 +13,12 @@ namespace lvk
     protected:
         T vk_object = VK_NULL_HANDLE;
     };
+
+    template <class T>
+    struct wrapper
+    {
+        virtual T unwrap() const = 0;
+    };
 }
 
 #endif
